@@ -1,0 +1,9 @@
+---
+- 
+  category: rust
+  name: "rust-lang/rust.vim"
+  opt: false
+- 
+  category: default
+  name: test/hello
+  opt: true
