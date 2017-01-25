@@ -29,6 +29,8 @@ Commands:
     help
     list
     install
+    config
+    move
 
 Options:
     -h, --help      Display this message
