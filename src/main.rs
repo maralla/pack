@@ -7,6 +7,7 @@ extern crate yaml_rust;
 extern crate git2;
 extern crate tempdir;
 extern crate walkdir;
+extern crate ansi_term;
 
 #[macro_use]
 mod utils;

@@ -3,6 +3,7 @@ use docopt::Docopt;
 use package::{self, Package};
 use git;
 use utils::Spinner;
+use ansi_term::Colour::{Red, Green};
 
 const USAGE: &'static str = "
 Install a plugin.
@@ -33,9 +34,11 @@ pub fn execute(args: &[String]) {
 
     print!("Installing plugin '{}' ", &args.arg_plugin);
     let res = install_plugin(args.arg_plugin, args.flag_category, args.flag_opt);
-    println!("");
     if let Err(e) = res {
+        println!("{}", Red.paint("✗"));
         die!("{}", e);
+    } else {
+        println!("{}", Green.paint("✓"));
     }
 }
 
