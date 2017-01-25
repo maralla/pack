@@ -48,6 +48,7 @@ pub enum Command {
     List,
     Install,
     Config,
+    Move,
 }
 
 fn execute(cmd: &Command, argv: &[String]) {
@@ -60,6 +61,7 @@ fn execute(cmd: &Command, argv: &[String]) {
         Command::List => cmd::list::execute(argv),
         Command::Install => cmd::install::execute(argv),
         Command::Config => cmd::config::execute(argv),
+        Command::Move => cmd::move_cmd::execute(argv),
     }
 }
 
