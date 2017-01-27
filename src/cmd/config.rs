@@ -1,6 +1,5 @@
 use std::fs::{self, File};
 use std::io::{Read, Write, ErrorKind};
-use std::path::PathBuf;
 
 use {Result, Error};
 use docopt::Docopt;
@@ -36,9 +35,9 @@ pub fn execute(args: &[String]) {
 
 fn config_plugin(name: &str) -> Result<()> {
     let packs = package::fetch().unwrap_or(vec![]);
-    packs.iter().filter(|x| name == x.name).next().ok_or(Error::PluginNotInstalled)?;
+    let pack = packs.iter().filter(|x| name == x.name).next().ok_or(Error::PluginNotInstalled)?;
 
-    let path = path_name(name);
+    let path = pack.config_path();
 
     let modified = match fs::metadata(&path) {
         Err(e) => {
@@ -75,10 +74,10 @@ fn config_plugin(name: &str) -> Result<()> {
     Ok(())
 }
 
-fn update_pack_plugin(packs: &[package::Package]) -> Result<()> {
+pub fn update_pack_plugin(packs: &[package::Package]) -> Result<()> {
     let mut f = File::create(&*package::PACK_PLUGIN_FILE)?;
     let mut buf = String::new();
-    for (p, path) in packs.iter().map(|x| (x, path_name(&x.name))) {
+    for (p, path) in packs.iter().map(|x| (x, x.config_path())) {
         buf.clear();
         if path.is_file() {
             File::open(&path)?.read_to_string(&mut buf)?;
@@ -86,15 +85,4 @@ fn update_pack_plugin(packs: &[package::Package]) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn path_name(n: &str) -> PathBuf {
-    let n = n.replace("/", "-");
-    let f = if n.ends_with(".vim") {
-        n
-    } else {
-        format!("{}.vim", &n)
-    };
-
-    package::PACK_CONFIG_DIR.join(f)
 }

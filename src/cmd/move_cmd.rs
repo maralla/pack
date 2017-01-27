@@ -43,12 +43,12 @@ fn move_plugin(plugin: String, category: String, opt: bool) -> Result<()> {
             None => return Err(Error::PluginNotInstalled),
         };
 
-        let origin_path = pack.path().ok_or(Error::RepoName)?;
+        let origin_path = pack.path();
         if !origin_path.is_dir() {
             return Err(Error::PluginNotInstalled);
         }
 
-        let path = package::Package::new(&plugin, &category, opt).path().ok_or(Error::RepoName)?;
+        let path = package::Package::new(&plugin, &category, opt).path();
         if origin_path != path {
             utils::copy_directory(&origin_path, &path)?;
             fs::remove_dir_all(&origin_path)?;

@@ -16,7 +16,6 @@ pub enum Error {
     Io(io::Error),
     Format,
     Git(String),
-    RepoName,
     Editor,
     PluginNotInstalled,
     PluginInstalled(String),
@@ -68,7 +67,6 @@ impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Format => "Invalid format",
-            Error::RepoName => "Invalid repo name",
             Error::SaveYaml => "Fail to save packfile",
             Error::Editor => "Can not open editor",
             Error::PluginNotInstalled => "Plugin not installed",

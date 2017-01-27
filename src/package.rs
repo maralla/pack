@@ -44,7 +44,7 @@ impl Package {
     }
 
     pub fn is_installed(&self) -> bool {
-        self.path().map(|p| p.is_dir()).unwrap_or(false)
+        self.path().is_dir()
     }
 
     pub fn set_category<T: Into<String>>(&mut self, cat: T) {
@@ -75,12 +75,30 @@ impl Package {
         Yaml::Hash(doc)
     }
 
-    pub fn path(&self) -> Option<PathBuf> {
-        get_repo(&self.name).map(|slug| if self.opt {
-            PACK_DIR.join(&self.category).join("opt").join(slug)
+    pub fn path(&self) -> PathBuf {
+        let (_, repo) = self.repo();
+        if self.opt {
+            PACK_DIR.join(&self.category).join("opt").join(repo)
         } else {
-            PACK_DIR.join(&self.category).join("start").join(slug)
-        })
+            PACK_DIR.join(&self.category).join("start").join(repo)
+        }
+    }
+
+    pub fn config_path(&self) -> PathBuf {
+        let name = self.name.replace("/", "-");
+        let fname = if name.ends_with(".vim") {
+            name
+        } else {
+            format!("{}.vim", &name)
+        };
+        PACK_CONFIG_DIR.join(fname)
+    }
+
+    pub fn repo(&self) -> (&str, &str) {
+        let mut info = self.name.splitn(2, "/");
+        let user = info.next().unwrap_or("");
+        let repo = info.next().unwrap_or("");
+        (user, repo)
     }
 }
 
@@ -130,14 +148,6 @@ pub fn save(mut packs: Vec<Package>) -> Result<()> {
     f.write(PACKFILE_HEADER)?;
     f.write(out.as_bytes())?;
     Ok(())
-}
-
-pub fn get_repo(name: &str) -> Option<&str> {
-    name.split("/").last()
-}
-
-pub fn get_user(name: &str) -> Option<&str> {
-    name.split("/").next()
 }
 
 // #[test]

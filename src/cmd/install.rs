@@ -6,10 +6,11 @@ use utils::Spinner;
 use ansi_term::Colour::{Red, Green};
 
 const USAGE: &'static str = "
-Install a plugin.
+Install plugins.
 
 Usage:
-    pack install <plugin> [options]
+    pack install
+    pack install <plugin>... [options]
     pack install -h | --help
 
 Options:
@@ -20,7 +21,7 @@ Options:
 
 #[derive(Debug, RustcDecodable)]
 struct InstallArgs {
-    arg_plugin: String,
+    arg_plugin: Vec<String>,
     flag_opt: bool,
     flag_category: String,
 }
@@ -32,50 +33,65 @@ pub fn execute(args: &[String]) {
     let args: InstallArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
 
-    print!("Installing plugin '{}' ", &args.arg_plugin);
-    let res = install_plugin(args.arg_plugin, args.flag_category, args.flag_opt);
-    if let Err(e) = res {
+    install_plugins(args.arg_plugin, args.flag_category, args.flag_opt);
+}
+
+fn report_install<F>(pack: &Package, mut install_func: F)
+    where F: FnMut(&Package) -> Result<()>
+{
+    print!("Installing plugin '{}' ", &pack.name);
+    if let Err(e) = install_func(pack) {
         println!("{}", Red.paint("✗"));
-        die!("{}", e);
+        println!("{}", e);
     } else {
         println!("{}", Green.paint("✓"));
     }
 }
 
-fn install_plugin(name: String, category: String, opt: bool) -> Result<()> {
-    if !name.contains("/") {
-        return Err(Error::RepoName);
-    }
-
-    let p = Package::new(&name, &category, opt);
-    let path = p.path().ok_or(Error::RepoName)?;
-    if path.is_dir() {
-        return Err(Error::plugin_installed(&path));
-    }
-
+fn install_plugins(name: Vec<String>, category: String, opt: bool) {
     let mut packs = package::fetch().unwrap_or(vec![]);
-    let has_entry = {
-        if let Some(p) = packs.iter_mut().filter(|p| p.name == name).next() {
-            if p.is_installed() {
-                return Err(Error::plugin_installed(p.path().unwrap()));
-            }
-            p.set_category(&category as &str);
-            p.set_opt(opt);
-            true
-        } else {
-            false
+
+    if name.is_empty() {
+        for pack in packs.iter() {
+            report_install(pack, install_plugin);
         }
-    };
-    if !has_entry {
-        packs.push(p);
+    } else {
+        for ref pack in name.into_iter().map(|ref n| Package::new(n, &category, opt)) {
+            report_install(pack, |p| {
+                let having = match packs.iter_mut().filter(|x| x.name == p.name).next() {
+                    Some(x) => {
+                        if x.is_installed() {
+                            return Err(Error::plugin_installed(p.path()));
+                        }
+                        x.set_category(p.category.as_str());
+                        x.set_opt(p.opt);
+                        true
+                    }
+                    None => false,
+                };
+                if !having {
+                    packs.push(p.clone());
+                }
+                install_plugin(p)
+            });
+        }
+        if let Err(e) = package::save(packs) {
+            die!("Fail to save packfile: {}", e);
+        }
     }
 
-    let repo = package::get_repo(&name).ok_or(Error::RepoName)?;
-    let user = package::get_user(&name).ok_or(Error::RepoName)?;
+}
 
-    let spinner = Spinner::spin();
-    git::clone(user, repo, &path)?;
-    package::save(packs)?;
-    spinner.stop();
-    Ok(())
+fn install_plugin(pack: &Package) -> Result<()> {
+    let path = pack.path();
+    if path.is_dir() {
+        Err(Error::plugin_installed(&path))
+    } else {
+        let (user, repo) = pack.repo();
+
+        let spinner = Spinner::spin();
+        git::clone(user, repo, &pack.path())?;
+        spinner.stop();
+        Ok(())
+    }
 }
