@@ -32,6 +32,8 @@ pub struct Package {
     pub name: String,
     pub category: String,
     pub opt: bool,
+    /// Load this package on this command
+    pub load_command: Option<String>,
 }
 
 impl Package {
@@ -40,6 +42,7 @@ impl Package {
             name: name.to_string(),
             category: category.to_string(),
             opt: opt,
+            load_command: None,
         }
     }
 
@@ -55,15 +58,21 @@ impl Package {
         self.opt = opt;
     }
 
+    pub fn set_load_command(&mut self, cmd: &str) {
+        self.load_command = Some(cmd.to_string())
+    }
+
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
         let opt = doc["opt"].as_bool().ok_or(Error::Format)?;
         let category = doc["category"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
+        let cmd = doc["on"].as_str().map(|s| s.to_string());
 
         Ok(Package {
             name: name,
             category: category,
             opt: opt,
+            load_command: cmd,
         })
     }
 
@@ -72,6 +81,9 @@ impl Package {
         doc.insert(Yaml::from_str("name"), Yaml::from_str(&self.name));
         doc.insert(Yaml::from_str("category"), Yaml::from_str(&self.category));
         doc.insert(Yaml::from_str("opt"), Yaml::Boolean(self.opt));
+        if let Some(ref c) = self.load_command {
+            doc.insert(Yaml::from_str("on"), Yaml::from_str(c));
+        }
         Yaml::Hash(doc)
     }
 
@@ -105,7 +117,16 @@ impl Package {
 impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = if self.opt { "opt" } else { "start" };
-        write!(f, "{} => pack/{}/{}", &self.name, &self.category, name)
+        let on = match self.load_command {
+            Some(ref c) => format!("[Load on `{}`]", c),
+            None => "".to_string(),
+        };
+        write!(f,
+               "{} => pack/{}/{} {}",
+               &self.name,
+               &self.category,
+               name,
+               on)
     }
 }
 

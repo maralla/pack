@@ -16,12 +16,14 @@ Usage:
 Options:
     -o, --opt               Install this plugin as opt
     -c, --category CAT      Install this plugin to category CAT [default: default]
+    --on CMD                Command for loading this plugin
     -h, --help              Display this message
 ";
 
 #[derive(Debug, RustcDecodable)]
 struct InstallArgs {
     arg_plugin: Vec<String>,
+    flag_on: Option<String>,
     flag_opt: bool,
     flag_category: String,
 }
@@ -33,7 +35,10 @@ pub fn execute(args: &[String]) {
     let args: InstallArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
 
-    install_plugins(args.arg_plugin, args.flag_category, args.flag_opt);
+    install_plugins(args.arg_plugin,
+                    args.flag_category,
+                    args.flag_opt,
+                    args.flag_on);
 }
 
 fn report_install<F>(pack: &Package, mut install_func: F)
@@ -48,15 +53,25 @@ fn report_install<F>(pack: &Package, mut install_func: F)
     }
 }
 
-fn install_plugins(name: Vec<String>, category: String, opt: bool) {
+fn install_plugins(name: Vec<String>, category: String, opt: bool, on: Option<String>) {
     let mut packs = package::fetch().unwrap_or(vec![]);
+
+    // If has load command opt is always true.
+    let opt = if on.is_some() { true } else { opt };
 
     if name.is_empty() {
         for pack in packs.iter() {
             report_install(pack, install_plugin);
         }
     } else {
-        for ref pack in name.into_iter().map(|ref n| Package::new(n, &category, opt)) {
+        let targets = name.into_iter().map(|ref n| {
+            let mut p = Package::new(n, &category, opt);
+            if let Some(ref c) = on {
+                p.set_load_command(c);
+            }
+            p
+        });
+        for ref pack in targets {
             report_install(pack, |p| {
                 let having = match packs.iter_mut().filter(|x| x.name == p.name).next() {
                     Some(x) => {
@@ -65,6 +80,9 @@ fn install_plugins(name: Vec<String>, category: String, opt: bool) {
                         }
                         x.set_category(p.category.as_str());
                         x.set_opt(p.opt);
+                        if let Some(ref c) = p.load_command {
+                            x.set_load_command(c);
+                        }
                         true
                     }
                     None => false,
