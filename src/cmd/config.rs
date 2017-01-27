@@ -87,18 +87,34 @@ pub fn update_pack_plugin(packs: &[package::Package]) -> Result<()> {
     let mut buf = String::new();
     for (p, path) in packs.iter().map(|x| (x, x.config_path())) {
         buf.clear();
+        let mut written = false;
+
         if let Some(ref c) = p.load_command {
+            f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+            written = true;
             let (_, repo) = p.repo();
-            let msg = format!("\" {name}\ncommand! -nargs=* -range -bang {cmd} packadd {repo} | \
+            let msg = format!("command! -nargs=* -range -bang {cmd} packadd {repo} | \
                                call s:do_cmd('{cmd}', \"<bang>\", <line1>, <line2>, <q-args>)\n\n",
-                              name = &p.name,
                               cmd = c,
                               repo = repo);
             f.write_all(msg.as_bytes())?;
         }
+
+        if !p.for_types.is_empty() {
+            if !written {
+                f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+                written = true;
+            }
+            let (_, repo) = p.repo();
+            let msg = format!("autocmd FileType {} packadd {}\n\n",
+                              p.for_types.join(","),
+                              repo);
+            f.write_all(msg.as_bytes())?;
+        }
+
         if path.is_file() {
             File::open(&path)?.read_to_string(&mut buf)?;
-            if p.load_command.is_none() {
+            if !written {
                 f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
             }
             f.write_all(format!("{}\n", &buf).as_bytes())?;

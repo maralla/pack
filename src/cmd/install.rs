@@ -4,6 +4,7 @@ use package::{self, Package};
 use git;
 use utils::Spinner;
 use ansi_term::Colour::{Red, Green};
+use cmd::config::update_pack_plugin;
 
 const USAGE: &'static str = "
 Install plugins.
@@ -17,6 +18,7 @@ Options:
     -o, --opt               Install this plugin as opt
     -c, --category CAT      Install this plugin to category CAT [default: default]
     --on CMD                Command for loading this plugin
+    --for TYPES             Load this plugin for TYPES
     -h, --help              Display this message
 ";
 
@@ -24,6 +26,7 @@ Options:
 struct InstallArgs {
     arg_plugin: Vec<String>,
     flag_on: Option<String>,
+    flag_for: Option<String>,
     flag_opt: bool,
     flag_category: String,
 }
@@ -35,10 +38,13 @@ pub fn execute(args: &[String]) {
     let args: InstallArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
 
+    let types = args.flag_for
+        .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
     install_plugins(args.arg_plugin,
                     args.flag_category,
                     args.flag_opt,
-                    args.flag_on);
+                    args.flag_on,
+                    types);
 }
 
 fn report_install<F>(pack: &Package, mut install_func: F)
@@ -53,11 +59,19 @@ fn report_install<F>(pack: &Package, mut install_func: F)
     }
 }
 
-fn install_plugins(name: Vec<String>, category: String, opt: bool, on: Option<String>) {
+fn install_plugins(name: Vec<String>,
+                   category: String,
+                   opt: bool,
+                   on: Option<String>,
+                   types: Option<Vec<String>>) {
     let mut packs = package::fetch().unwrap_or(vec![]);
 
     // If has load command opt is always true.
-    let opt = if on.is_some() { true } else { opt };
+    let opt = if on.is_some() || types.is_some() {
+        true
+    } else {
+        opt
+    };
 
     if name.is_empty() {
         for pack in packs.iter() {
@@ -69,6 +83,9 @@ fn install_plugins(name: Vec<String>, category: String, opt: bool, on: Option<St
             if let Some(ref c) = on {
                 p.set_load_command(c);
             }
+            if let Some(ref t) = types {
+                p.set_types(t.clone());
+            }
             p
         });
         for ref pack in targets {
@@ -76,10 +93,11 @@ fn install_plugins(name: Vec<String>, category: String, opt: bool, on: Option<St
                 let having = match packs.iter_mut().filter(|x| x.name == p.name).next() {
                     Some(x) => {
                         if x.is_installed() {
-                            return Err(Error::plugin_installed(p.path()));
+                            return Err(Error::plugin_installed(x.path()));
                         }
                         x.set_category(p.category.as_str());
                         x.set_opt(p.opt);
+                        x.set_types(p.for_types.clone());
                         if let Some(ref c) = p.load_command {
                             x.set_load_command(c);
                         }
@@ -93,11 +111,17 @@ fn install_plugins(name: Vec<String>, category: String, opt: bool, on: Option<St
                 install_plugin(p)
             });
         }
-        if let Err(e) = package::save(packs) {
-            die!("Fail to save packfile: {}", e);
-        }
     }
 
+    packs.sort_by(|a, b| a.name.cmp(&b.name));
+
+    if let Err(e) = update_pack_plugin(&packs) {
+        die!("Fail to update pack plugin file: {}", e);
+    }
+
+    if let Err(e) = package::save(packs) {
+        die!("Fail to save packfile: {}", e);
+    }
 }
 
 fn install_plugin(pack: &Package) -> Result<()> {

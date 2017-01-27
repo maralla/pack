@@ -34,6 +34,8 @@ pub struct Package {
     pub opt: bool,
     /// Load this package on this command
     pub load_command: Option<String>,
+    /// Load this package for these types
+    pub for_types: Vec<String>,
 }
 
 impl Package {
@@ -43,6 +45,7 @@ impl Package {
             category: category.to_string(),
             opt: opt,
             load_command: None,
+            for_types: Vec::new(),
         }
     }
 
@@ -62,17 +65,33 @@ impl Package {
         self.load_command = Some(cmd.to_string())
     }
 
+    pub fn set_types(&mut self, types: Vec<String>) {
+        self.for_types = types
+    }
+
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
         let opt = doc["opt"].as_bool().ok_or(Error::Format)?;
         let category = doc["category"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
         let cmd = doc["on"].as_str().map(|s| s.to_string());
 
+        let types = match doc["for"].as_vec() {
+            Some(f) => {
+                let mut types = Vec::with_capacity(f.len());
+                for e in f {
+                    types.push(e.as_str().map(|s| s.to_string()).ok_or(Error::Format)?);
+                }
+                types
+            }
+            None => vec![],
+        };
+
         Ok(Package {
             name: name,
             category: category,
             opt: opt,
             load_command: cmd,
+            for_types: types,
         })
     }
 
@@ -83,6 +102,10 @@ impl Package {
         doc.insert(Yaml::from_str("opt"), Yaml::Boolean(self.opt));
         if let Some(ref c) = self.load_command {
             doc.insert(Yaml::from_str("on"), Yaml::from_str(c));
+        }
+        if !self.for_types.is_empty() {
+            let types = self.for_types.iter().map(|e| Yaml::from_str(e)).collect::<Vec<Yaml>>();
+            doc.insert(Yaml::from_str("for"), Yaml::Array(types));
         }
         Yaml::Hash(doc)
     }
@@ -118,15 +141,23 @@ impl fmt::Display for Package {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = if self.opt { "opt" } else { "start" };
         let on = match self.load_command {
-            Some(ref c) => format!("[Load on `{}`]", c),
+            Some(ref c) => format!(" [Load on `{}`]", c),
             None => "".to_string(),
         };
+
+        let types = if !self.for_types.is_empty() {
+            let types = self.for_types.join(", ");
+            format!(" [For {}]", types)
+        } else {
+            "".to_string()
+        };
         write!(f,
-               "{} => pack/{}/{} {}",
+               "{} => pack/{}/{}{}{}",
                &self.name,
                &self.category,
                name,
-               on)
+               on,
+               types)
     }
 }
 
@@ -153,8 +184,7 @@ pub fn fetch() -> Option<Vec<Package>> {
     }
 }
 
-pub fn save(mut packs: Vec<Package>) -> Result<()> {
-    packs.sort_by(|a, b| a.name.cmp(&b.name));
+pub fn save(packs: Vec<Package>) -> Result<()> {
     let packs = packs.into_iter().map(|e| e.into_yaml()).collect::<Vec<Yaml>>();
     let doc = Yaml::Array(packs);
     let mut out = String::new();

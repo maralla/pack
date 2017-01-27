@@ -61,6 +61,7 @@ fn move_plugin(plugin: String, category: String, opt: bool) -> Result<()> {
     };
 
     if changed {
+        packs.sort_by(|a, b| a.name.cmp(&b.name));
         package::save(packs)?;
     }
     Ok(())

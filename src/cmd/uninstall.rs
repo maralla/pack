@@ -41,6 +41,7 @@ fn uninstall_plugins(plugins: Vec<String>) -> Result<()> {
     }
 
     packs.retain(|x| !plugins.contains(&x.name));
+    packs.sort_by(|a, b| a.name.cmp(&b.name));
     config::update_pack_plugin(&packs)?;
     package::save(packs)?;
     Ok(())
