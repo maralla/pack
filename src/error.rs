@@ -17,6 +17,7 @@ pub enum Error {
     Format,
     Git(String),
     Editor,
+    Build(String),
     PluginNotInstalled,
     PluginInstalled(String),
     CopyDir(String),
@@ -26,6 +27,10 @@ pub enum Error {
 impl Error {
     pub fn copy_dir(s: &str) -> Error {
         Error::CopyDir(format!("Fail to copy directory: {}", s))
+    }
+
+    pub fn build<T: AsRef<str>>(s: T) -> Error {
+        Error::Build(format!("Fail to build plugin: {}", s.as_ref()))
     }
 
     pub fn plugin_installed<T: AsRef<Path>>(s: T) -> Error {
@@ -71,6 +76,7 @@ impl StdError for Error {
             Error::Editor => "Can not open editor",
             Error::PluginNotInstalled => "Plugin not installed",
             Error::Io(ref e) => e.description(),
+            Error::Build(ref s) => s,
             Error::Git(ref s) => s,
             Error::CopyDir(ref s) => s,
             Error::PluginInstalled(ref s) => s,

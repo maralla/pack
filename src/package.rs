@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::env;
 use std::path::PathBuf;
 use std::fmt;
+use std::process;
 
 use {Result, Error};
 
@@ -36,6 +37,8 @@ pub struct Package {
     pub load_command: Option<String>,
     /// Load this package for these types
     pub for_types: Vec<String>,
+    /// Build command for this package
+    pub build_command: Option<String>,
 }
 
 impl Package {
@@ -46,6 +49,7 @@ impl Package {
             opt: opt,
             load_command: None,
             for_types: Vec::new(),
+            build_command: None,
         }
     }
 
@@ -69,11 +73,16 @@ impl Package {
         self.for_types = types
     }
 
+    pub fn set_build_command(&mut self, cmd: &str) {
+        self.build_command = Some(cmd.to_string())
+    }
+
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
         let opt = doc["opt"].as_bool().ok_or(Error::Format)?;
         let category = doc["category"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
         let cmd = doc["on"].as_str().map(|s| s.to_string());
+        let build = doc["build"].as_str().map(|s| s.to_string());
 
         let types = match doc["for"].as_vec() {
             Some(f) => {
@@ -92,6 +101,7 @@ impl Package {
             opt: opt,
             load_command: cmd,
             for_types: types,
+            build_command: build,
         })
     }
 
@@ -102,6 +112,9 @@ impl Package {
         doc.insert(Yaml::from_str("opt"), Yaml::Boolean(self.opt));
         if let Some(ref c) = self.load_command {
             doc.insert(Yaml::from_str("on"), Yaml::from_str(c));
+        }
+        if let Some(ref c) = self.build_command {
+            doc.insert(Yaml::from_str("build"), Yaml::from_str(c));
         }
         if !self.for_types.is_empty() {
             let types = self.for_types.iter().map(|e| Yaml::from_str(e)).collect::<Vec<Yaml>>();
@@ -134,6 +147,22 @@ impl Package {
         let user = info.next().unwrap_or("");
         let repo = info.next().unwrap_or("");
         (user, repo)
+    }
+
+    pub fn build(&self) -> Result<()> {
+        match self.build_command {
+            Some(ref c) => {
+                println!("Building...");
+                let path = self.path();
+                process::Command::new("sh").arg("-c")
+                    .arg(c)
+                    .current_dir(&path)
+                    .spawn()?
+                    .wait()?;
+            }
+            None => println!("No build command. skipping"),
+        }
+        Ok(())
     }
 }
 

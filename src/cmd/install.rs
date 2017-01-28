@@ -19,6 +19,7 @@ Options:
     -c, --category CAT      Install this plugin to category CAT [default: default]
     --on CMD                Command for loading this plugin
     --for TYPES             Load this plugin for TYPES
+    --build BUILD           Build command for this plugin
     -h, --help              Display this message
 ";
 
@@ -29,6 +30,7 @@ struct InstallArgs {
     flag_for: Option<String>,
     flag_opt: bool,
     flag_category: String,
+    flag_build: Option<String>,
 }
 
 pub fn execute(args: &[String]) {
@@ -44,7 +46,8 @@ pub fn execute(args: &[String]) {
                     args.flag_category,
                     args.flag_opt,
                     args.flag_on,
-                    types);
+                    types,
+                    args.flag_build);
 }
 
 fn report_install<F>(pack: &Package, mut install_func: F)
@@ -56,6 +59,12 @@ fn report_install<F>(pack: &Package, mut install_func: F)
         println!("{}", e);
     } else {
         println!("{}", Green.paint("✓"));
+
+        if pack.build_command.is_some() {
+            if let Err(e) = pack.build().map_err(|e| Error::build(format!("{}", e))) {
+                die!("{}", e);
+            }
+        }
     }
 }
 
@@ -63,7 +72,8 @@ fn install_plugins(name: Vec<String>,
                    category: String,
                    opt: bool,
                    on: Option<String>,
-                   types: Option<Vec<String>>) {
+                   types: Option<Vec<String>>,
+                   build: Option<String>) {
     let mut packs = package::fetch().unwrap_or(vec![]);
 
     // If has load command opt is always true.
@@ -86,6 +96,9 @@ fn install_plugins(name: Vec<String>,
             if let Some(ref t) = types {
                 p.set_types(t.clone());
             }
+            if let Some(ref c) = build {
+                p.set_build_command(c);
+            }
             p
         });
         for ref pack in targets {
@@ -100,6 +113,9 @@ fn install_plugins(name: Vec<String>,
                         x.set_types(p.for_types.clone());
                         if let Some(ref c) = p.load_command {
                             x.set_load_command(c);
+                        }
+                        if let Some(ref c) = p.build_command {
+                            x.set_build_command(c);
                         }
                         true
                     }
