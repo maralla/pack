@@ -164,6 +164,22 @@ impl Package {
         }
         Ok(())
     }
+
+    pub fn try_build_help(&self) -> Result<()> {
+        let path = self.path().join("doc");
+        if path.is_dir() {
+            println!("Building doc...");
+            process::Command::new("vim").arg("--not-a-term")
+                .arg("-c")
+                .arg(format!("helptags {}", path.to_string_lossy()))
+                .arg("-c")
+                .arg("q")
+                .stdout(process::Stdio::null())
+                .spawn()?
+                .wait()?;
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for Package {

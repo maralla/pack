@@ -65,6 +65,9 @@ fn report_install<F>(pack: &Package, mut install_func: F)
                 die!("{}", e);
             }
         }
+        if let Err(_) = pack.try_build_help() {
+            println!("Warning: fail to build doc");
+        }
     }
 }
 
