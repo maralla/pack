@@ -4,7 +4,6 @@ use package::{self, Package};
 use git;
 use utils::Spinner;
 use ansi_term::Colour::{Red, Green};
-use cmd::config::update_pack_plugin;
 
 const USAGE: &'static str = "
 Install plugins.
@@ -134,7 +133,7 @@ fn install_plugins(name: Vec<String>,
 
     packs.sort_by(|a, b| a.name.cmp(&b.name));
 
-    if let Err(e) = update_pack_plugin(&packs) {
+    if let Err(e) = package::update_pack_plugin(&packs) {
         die!("Fail to update pack plugin file: {}", e);
     }
 
