@@ -194,7 +194,7 @@ impl fmt::Display for Package {
         };
 
         let types = if !self.for_types.is_empty() {
-            let types = self.for_types.join(", ");
+            let types = self.for_types.join(",");
             format!(" [For {}]", types)
         } else {
             "".to_string()
