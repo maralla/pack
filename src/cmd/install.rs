@@ -50,11 +50,12 @@ pub fn execute(args: &[String]) {
         die!("Threads should be greater than 0");
     }
 
+    let opt = args.flag_on.is_some() || args.flag_for.is_some() || args.flag_opt;
     let types = args.flag_for
         .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
     install_plugins(args.arg_plugin,
                     args.flag_category,
-                    args.flag_opt,
+                    opt,
                     args.flag_on,
                     types,
                     args.flag_build,
@@ -79,7 +80,6 @@ impl TaskManager {
     }
 
     fn run(self) {
-        print!("{}", cursor::Hide);
         let (tx, rx) = chan::sync(0);
         let wg = chan::WaitGroup::new();
 
@@ -95,21 +95,18 @@ impl TaskManager {
             });
         }
 
-        for _ in 0..self.packs.len() + 1 {
+        let offset = self.packs.len() as u16 + 2;
+        for _ in 0..offset {
             print!("\n");
         }
-        let offset = self.packs.len() as u16 + 1;
-        print!("{}", cursor::Up(offset));
-
         for (i, pack) in self.packs.into_iter().enumerate() {
-            tx.send(Some((i as u16 + 1, pack)));
+            tx.send(Some((offset - i as u16 - 1, pack)));
         }
 
         for _ in 0..self.thread_num {
             tx.send(None);
         }
         wg.wait();
-        print!("{}{}", cursor::Down(offset), cursor::Show);
     }
 }
 
@@ -135,12 +132,6 @@ fn report_install(line: u16, pack: &Package) {
     }
 
     let spinner = Spinner::spin(line, 3);
-
-    if pack.is_installed() {
-        spinner.stop();
-        print_err!(Error::plugin_installed(&pack.path()));
-        return;
-    }
 
     if let Err(e) = install_plugin(pack) {
         spinner.stop();
@@ -191,13 +182,6 @@ fn install_plugins(name: Vec<String>,
                    build: Option<String>,
                    threads: usize) {
     let mut packs = package::fetch().unwrap_or(vec![]);
-
-    // If has load command opt is always true.
-    let opt = if on.is_some() || types.is_some() {
-        true
-    } else {
-        opt
-    };
 
     {
         let mut manager = TaskManager::new(threads);

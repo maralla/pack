@@ -92,11 +92,13 @@ pub fn async_print(line: u16, right: u16, msg: &str) {
     }
 
     let _ = MUTEX.lock().unwrap();
+    print!("{}", cursor::Hide);
     print!("{}{}{}{}",
-           cursor::Down(line),
+           cursor::Up(line),
            msg,
            cursor::Left(right),
-           cursor::Up(line));
+           cursor::Down(line));
+    print!("{}", cursor::Show);
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     handle.flush().unwrap();
