@@ -5,9 +5,10 @@ extern crate rustc_serialize;
 extern crate docopt;
 extern crate yaml_rust;
 extern crate git2;
-extern crate tempdir;
+extern crate termion;
 extern crate walkdir;
-extern crate ansi_term;
+extern crate num_cpus;
+extern crate chan;
 
 #[macro_use]
 mod utils;

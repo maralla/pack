@@ -157,17 +157,14 @@ impl Package {
     }
 
     pub fn build(&self) -> Result<()> {
-        match self.build_command {
-            Some(ref c) => {
-                println!("Building...");
-                let path = self.path();
-                process::Command::new("sh").arg("-c")
-                    .arg(c)
-                    .current_dir(&path)
-                    .spawn()?
-                    .wait()?;
-            }
-            None => println!("No build command. skipping"),
+        if let Some(ref c) = self.build_command {
+            let path = self.path();
+            process::Command::new("sh").arg("-c")
+                .arg(c)
+                .stdout(process::Stdio::null())
+                .current_dir(&path)
+                .spawn()?
+                .wait()?;
         }
         Ok(())
     }
@@ -175,7 +172,6 @@ impl Package {
     pub fn try_build_help(&self) -> Result<()> {
         let path = self.path().join("doc");
         if path.is_dir() {
-            println!("Building doc...");
             process::Command::new("vim").arg("--not-a-term")
                 .arg("-c")
                 .arg(format!("helptags {}", path.to_string_lossy()))

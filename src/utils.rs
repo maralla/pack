@@ -6,11 +6,14 @@ use std::process;
 use std::path::Path;
 use std::io::{self, Write};
 use std::sync::mpsc::{channel, Sender};
+use std::sync::Mutex;
 
+use termion::cursor;
 use {Result, Error};
 use walkdir::WalkDir;
 
-const SPINNER_CHARS: &'static str = "⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏ ";
+const SPINNER_CHARS: [&'static str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧",
+                                           "⠇", "⠏"];
 const DEFAULT_EDITOR: &'static str = "vi";
 
 macro_rules! die {
@@ -27,20 +30,15 @@ pub struct Spinner {
 }
 
 impl Spinner {
-    pub fn spin() -> Spinner {
+    pub fn spin(x: u16, y: u16) -> Spinner {
         let (tx, rx) = channel();
-        let handle = thread::spawn(move || {
-            let stdout = io::stdout();
-            let mut handle = stdout.lock();
-            for c in SPINNER_CHARS.as_bytes().chunks(4).cycle() {
-                if let Ok(_) = rx.try_recv() {
-                    break;
-                }
-                handle.write(c).unwrap();
-                handle.flush().unwrap();
-                thread::sleep(time::Duration::from_millis(100));
-                handle.write(b"\x08\x08").unwrap();
+        let handle = thread::spawn(move || for c in SPINNER_CHARS.iter().cycle() {
+            if let Ok(_) = rx.try_recv() {
+                break;
             }
+
+            async_print(x, y + 1, &format!("{}{}", cursor::Right(y), c));
+            thread::sleep(time::Duration::from_millis(100));
         });
         Spinner {
             tx: tx,
@@ -86,4 +84,20 @@ pub fn open_editor<P: AsRef<Path>>(path: P) -> Result<()> {
     let editor = get_editor().ok_or(Error::Editor)?;
     process::Command::new(editor).arg(path.as_ref().as_os_str()).spawn()?.wait()?;
     Ok(())
+}
+
+pub fn async_print(line: u16, right: u16, msg: &str) {
+    lazy_static! {
+        static ref MUTEX: Mutex<i32> = Mutex::new(0);
+    }
+
+    let _ = MUTEX.lock().unwrap();
+    print!("{}{}{}{}",
+           cursor::Down(line),
+           msg,
+           cursor::Left(right),
+           cursor::Up(line));
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    handle.flush().unwrap();
 }
