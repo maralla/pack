@@ -34,7 +34,7 @@ pub fn execute(args: &[String]) {
 }
 
 fn config_plugin(name: &str) -> Result<()> {
-    let packs = package::fetch().unwrap_or(vec![]);
+    let packs = package::fetch()?;
     let pack = packs.iter().filter(|x| name == x.name).next().ok_or(Error::PluginNotInstalled)?;
 
     let path = pack.config_path();

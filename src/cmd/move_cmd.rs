@@ -36,7 +36,7 @@ pub fn execute(args: &[String]) {
 }
 
 fn move_plugin(plugin: String, category: String, opt: bool) -> Result<()> {
-    let mut packs = package::fetch().unwrap_or(vec![]);
+    let mut packs = package::fetch()?;
     let changed = {
         let pack = match packs.iter_mut().filter(|p| p.name == plugin).next() {
             Some(p) => p,

@@ -53,13 +53,15 @@ pub fn execute(args: &[String]) {
     let opt = args.flag_on.is_some() || args.flag_for.is_some() || args.flag_opt;
     let types = args.flag_for
         .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
-    install_plugins(args.arg_plugin,
-                    args.flag_category,
-                    opt,
-                    args.flag_on,
-                    types,
-                    args.flag_build,
-                    threads);
+    if let Err(e) = install_plugins(args.arg_plugin,
+                                    args.flag_category,
+                                    opt,
+                                    args.flag_on,
+                                    types,
+                                    args.flag_build,
+                                    threads) {
+        die!("Err: {}", e);
+    }
 }
 
 struct TaskManager {
@@ -180,8 +182,9 @@ fn install_plugins(name: Vec<String>,
                    on: Option<String>,
                    types: Option<Vec<String>>,
                    build: Option<String>,
-                   threads: usize) {
-    let mut packs = package::fetch().unwrap_or(vec![]);
+                   threads: usize)
+                   -> Result<()> {
+    let mut packs = package::fetch()?;
 
     {
         let mut manager = TaskManager::new(threads);
@@ -233,13 +236,8 @@ fn install_plugins(name: Vec<String>,
 
     packs.sort_by(|a, b| a.name.cmp(&b.name));
 
-    if let Err(e) = package::update_pack_plugin(&packs) {
-        die!("Fail to update pack plugin file: {}", e);
-    }
-
-    if let Err(e) = package::save(packs) {
-        die!("Fail to save packfile: {}", e);
-    }
+    package::update_pack_plugin(&packs)?;
+    package::save(packs)
 }
 
 fn install_plugin(pack: &Package) -> Result<()> {

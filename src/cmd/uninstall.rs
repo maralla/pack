@@ -33,7 +33,7 @@ pub fn execute(args: &[String]) {
 }
 
 fn uninstall_plugins(plugins: Vec<String>) -> Result<()> {
-    let mut packs = package::fetch().unwrap_or(vec![]);
+    let mut packs = package::fetch()?;
 
     for pack in packs.iter().filter(|p| plugins.contains(&p.name)) {
         uninstall_plugin(&pack)?;

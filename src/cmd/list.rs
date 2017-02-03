@@ -1,3 +1,4 @@
+use Result;
 use docopt::Docopt;
 use package::{self, Package};
 
@@ -28,11 +29,13 @@ pub fn execute(args: &[String]) {
     let args: ListArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
 
-    list_packages(args.flag_start, args.flag_opt, args.flag_category);
+    if let Err(e) = list_packages(args.flag_start, args.flag_opt, args.flag_category) {
+        die!("Err: {}", e);
+    }
 }
 
-fn list_packages(start: bool, opt: bool, cat: Option<String>) {
-    let packs = package::fetch().unwrap_or(vec![]);
+fn list_packages(start: bool, opt: bool, cat: Option<String>) -> Result<()> {
+    let packs = package::fetch()?;
 
     let ps = if let Some(c) = cat {
         packs.iter().filter(|x| x.category == c).collect::<Vec<&Package>>()
@@ -55,4 +58,5 @@ fn list_packages(start: bool, opt: bool, cat: Option<String>) {
             println!("{}", p);
         }
     }
+    Ok(())
 }

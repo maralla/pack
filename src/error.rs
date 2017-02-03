@@ -7,7 +7,7 @@ use std::path::StripPrefixError;
 
 use git2;
 use walkdir;
-use yaml_rust::emitter::EmitError;
+use yaml_rust::{EmitError, ScanError};
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -20,8 +20,10 @@ pub enum Error {
     Build(String),
     PluginNotInstalled,
     PluginInstalled(String),
+    PackFile(String),
     CopyDir(String),
     SaveYaml,
+    LoadYaml,
 }
 
 impl Error {
@@ -68,11 +70,18 @@ impl From<EmitError> for Error {
     }
 }
 
+impl From<ScanError> for Error {
+    fn from(_: ScanError) -> Error {
+        Error::LoadYaml
+    }
+}
+
 impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Format => "Invalid format",
             Error::SaveYaml => "Fail to save packfile",
+            Error::LoadYaml => "Fail to load packfile",
             Error::Editor => "Can not open editor",
             Error::PluginNotInstalled => "Plugin not installed",
             Error::Io(ref e) => e.description(),
@@ -80,6 +89,7 @@ impl StdError for Error {
             Error::Git(ref s) => s,
             Error::CopyDir(ref s) => s,
             Error::PluginInstalled(ref s) => s,
+            Error::PackFile(ref s) => s,
         }
     }
 }

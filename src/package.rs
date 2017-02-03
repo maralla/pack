@@ -1,7 +1,7 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fmt;
 use std::process;
 
@@ -212,27 +212,29 @@ impl fmt::Display for Package {
     }
 }
 
-pub fn fetch() -> Option<Vec<Package>> {
-    if !PACK_FILE.is_file() {
-        return None;
-    }
-
-    let mut data = String::new();
-    File::open(&*PACK_FILE)
-        .expect("Fail to open packfile")
-        .read_to_string(&mut data)
-        .expect("Fail to read packfile");
-    let docs = YamlLoader::load_from_str(&data).expect("Unexpected packfile format");
-
-    if docs.is_empty() {
-        None
+pub fn fetch() -> Result<Vec<Package>> {
+    if PACK_FILE.is_file() {
+        fetch_from_packfile(&*PACK_FILE)
+            .map_err(|e| Error::PackFile(format!("Fail to parse packfile: {}", e)))
     } else {
-        docs[0].as_vec().map(|doc| {
-            doc.iter()
-                .map(|d| Package::from_yaml(d).expect("Invalid format"))
-                .collect::<Vec<Package>>()
-        })
+        Ok(vec![])
     }
+}
+
+fn fetch_from_packfile<P: AsRef<Path>>(packfile: P) -> Result<Vec<Package>> {
+    let mut data = String::new();
+    File::open(packfile.as_ref())?.read_to_string(&mut data)?;
+    let docs = YamlLoader::load_from_str(&data)?;
+
+    let mut ret = Vec::new();
+    if !docs.is_empty() {
+        if let Some(doc) = docs[0].as_vec() {
+            for d in doc {
+                ret.push(Package::from_yaml(d)?);
+            }
+        }
+    }
+    Ok(ret)
 }
 
 pub fn save(packs: Vec<Package>) -> Result<()> {
