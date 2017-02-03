@@ -142,7 +142,7 @@ fn report_install(line: u16, pack: &Package) {
             async_print(line,
                         13 + pos,
                         &format!("{}{}building", cursor::Right(5 + pos), clear::UntilNewline));
-            if let Err(e) = pack.build().map_err(|e| Error::build(format!("{}", e))) {
+            if let Err(e) = pack.try_build().map_err(|e| Error::build(format!("{}", e))) {
                 print_err!(e);
                 failed = true;
             }
@@ -211,12 +211,9 @@ fn install_plugins(name: Vec<String>,
                             x.set_category(pack.category.as_str());
                             x.set_opt(pack.opt);
                             x.set_types(pack.for_types.clone());
-                            if let Some(ref c) = pack.load_command {
-                                x.set_load_command(c);
-                            }
-                            if let Some(ref c) = pack.build_command {
-                                x.set_build_command(c);
-                            }
+
+                            x.load_command = pack.load_command.clone();
+                            x.build_command = pack.build_command.clone();
                         } else {
                             pack.set_category(x.category.as_str());
                             pack.set_opt(x.opt);
