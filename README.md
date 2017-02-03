@@ -1,4 +1,6 @@
 pack
 ====
 
-vim package manager.
+Package manager for vim8.
+
+![demo](http://i.imgur.com/mhkRXPZ.gif)
