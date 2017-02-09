@@ -4,3 +4,83 @@ pack
 Package manager for vim8.
 
 ![demo](http://i.imgur.com/mhkRXPZ.gif)
+
+Usage
+-----
+
+All tasks should be done through `pack` command. `pack` will create a file named
+*packfile* under `$VIM_CONFIG_DIR/.pack/` and all plugins are tracked in the file.
+Plugin config files are stored under `$VIM_CONFIG_DIR/.pack/`. The config files
+will be concatenated and stored under `$VIM_CONFIG_DIR/plugin/_pack.vim` automatically.
+These files are all managed by `pack`. Never change the files manually.
+
+#### `pack` command
+
+```bash
+# Show general usage
+$ pack -h
+```
+
+#### Install plugins
+
+```bash
+$ pack help install
+
+# install plugins
+# pack install <github_user/github_repo>
+$ pack install maralla/completor.vim
+$ pack install maralla/completor.vim maralla/completor-neosnippet
+
+# install all plugins
+$ pack install
+
+# install optional plugin
+$ pack install altercation/vim-colors-solarized -o
+
+# install to a specific category
+$ pack install pangloss/vim-javascript -c lang
+
+# install a plugin for types
+$ pack install maralla/rope.vim --for python
+$ pack install mattn/emmet-vim --for html,jinja,xml
+
+# install a plugin loaded for a command
+$ pack install gregsexton/gitv --on Gitv
+
+# install a plugin and build after installed
+$ pack install Shougo/vimproc.vim --build 'make'
+```
+
+#### Config a plugin
+
+```bash
+$ pack config maralla/completor.vim
+# This command will open an editor, enter vim scripts as the config for the plugin
+# For example:
+#
+#   let g:completor_css_omni_trigger = '([\w-]+|@[\w-]*|[\w-]+:\s*[\w-]*)$'
+```
+
+#### List installed plugins
+
+```bash
+$ pack list
+```
+
+#### Uninstall plugins
+
+Simple uninstall a plugin will not remove plugin config file. To remove a plugin
+config file use `pack uninstall <plugin> -a` or `pack config <plugin> -d`.
+
+````bash
+$ pack uninstall maralla/completor.vim
+$ pack uninstall maralla/completor.vim maralla/completor-neosnippet
+```
+
+#### Update plugins
+
+```bash
+$ pack update
+$ pack update maralla/completor.vim
+$ pack update maralla/completor.vim maralla/completor-neosnippet
+```
