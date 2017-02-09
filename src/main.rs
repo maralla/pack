@@ -17,6 +17,8 @@ mod cmd;
 mod error;
 mod package;
 mod git;
+mod task;
+mod echo;
 
 pub use error::{Result, Error};
 use docopt::Docopt;
@@ -33,6 +35,7 @@ Commands:
     uninstall
     config
     move
+    update
 
 Options:
     -h, --help      Display this message
@@ -54,6 +57,7 @@ pub enum Command {
     Uninstall,
     Config,
     Move,
+    Update,
 }
 
 fn execute(cmd: &Command, argv: &[String]) {
@@ -68,6 +72,7 @@ fn execute(cmd: &Command, argv: &[String]) {
         Command::Uninstall => cmd::uninstall::execute(argv),
         Command::Config => cmd::config::execute(argv),
         Command::Move => cmd::move_cmd::execute(argv),
+        Command::Update => cmd::update::execute(argv),
     }
 }
 

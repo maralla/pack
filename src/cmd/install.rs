@@ -1,13 +1,12 @@
-use std::thread;
+use std::path::Path;
+use std::os::unix::fs::symlink;
 
 use {Error, Result};
 use docopt::Docopt;
 use package::{self, Package};
 use git;
-use utils::{Spinner, async_print};
-use termion::{color, cursor, clear};
 use num_cpus;
-use chan;
+use task::TaskManager;
 
 const USAGE: &'static str = "
 Install plugins.
@@ -20,6 +19,7 @@ Usage:
 Options:
     -o, --opt               Install this plugin as opt
     -c, --category CAT      Install this plugin to category CAT [default: default]
+    -l, --local             Install a local plugin
     --on CMD                Command for loading this plugin
     --for TYPES             Load this plugin for TYPES
     --build BUILD           Build command for this plugin
@@ -30,6 +30,7 @@ Options:
 #[derive(Debug, RustcDecodable)]
 struct InstallArgs {
     arg_plugin: Vec<String>,
+    flag_local: bool,
     flag_on: Option<String>,
     flag_for: Option<String>,
     flag_threads: Option<usize>,
@@ -59,120 +60,9 @@ pub fn execute(args: &[String]) {
                                     args.flag_on,
                                     types,
                                     args.flag_build,
-                                    threads) {
+                                    threads,
+                                    args.flag_local) {
         die!("Err: {}", e);
-    }
-}
-
-struct TaskManager {
-    packs: Vec<Package>,
-    thread_num: usize,
-}
-
-impl TaskManager {
-    fn new(thread_num: usize) -> TaskManager {
-        TaskManager {
-            packs: Vec::new(),
-            thread_num: thread_num,
-        }
-    }
-
-    fn add(&mut self, pack: Package) {
-        self.packs.push(pack);
-    }
-
-    fn run(self) {
-        let (tx, rx) = chan::sync(0);
-        let wg = chan::WaitGroup::new();
-
-        for _ in 0..self.thread_num {
-            wg.add(1);
-            let rx = rx.clone();
-            let wg = wg.clone();
-            thread::spawn(move || {
-                while let Some(Some((index, pack))) = rx.recv() {
-                    report_install(index, &pack);
-                }
-                wg.done();
-            });
-        }
-
-        let offset = self.packs.len() as u16 + 2;
-        for _ in 0..offset {
-            print!("\n");
-        }
-        for (i, pack) in self.packs.into_iter().enumerate() {
-            tx.send(Some((offset - i as u16 - 1, pack)));
-        }
-
-        for _ in 0..self.thread_num {
-            tx.send(None);
-        }
-        wg.wait();
-    }
-}
-
-fn report_install(line: u16, pack: &Package) {
-    let msg = format!(" [{}]", &pack.name);
-    let pos = msg.len() as u16;
-
-    async_print(line, pos + 15, &format!("    {} installing", &msg));
-
-    macro_rules! print_err {
-        ($err:expr) => {
-            let msg = format!("{}", $err);
-            async_print(line,
-                        4,
-                        &format!("{}{}✗{}",
-                                cursor::Right(3),
-                                color::Fg(color::Red),
-                                color::Fg(color::Reset)));
-            async_print(line,
-                        5 + pos + msg.len() as u16,
-                        &format!("{}{}{}", cursor::Right(5 + pos), clear::UntilNewline, &msg));
-        }
-    }
-
-    let spinner = Spinner::spin(line, 3);
-
-    if let Err(e) = install_plugin(pack) {
-        spinner.stop();
-        print_err!(e);
-    } else {
-        let mut failed = false;
-        if pack.build_command.is_some() {
-            async_print(line,
-                        13 + pos,
-                        &format!("{}{}building", cursor::Right(5 + pos), clear::UntilNewline));
-            if let Err(e) = pack.try_build().map_err(|e| Error::build(format!("{}", e))) {
-                print_err!(e);
-                failed = true;
-            }
-        }
-        if pack.path().join("doc").is_dir() {
-            async_print(line,
-                        17 + pos,
-                        &format!("{}{}building doc",
-                                 cursor::Right(5 + pos),
-                                 clear::UntilNewline));
-            if let Err(_) = pack.try_build_help() {
-                print_err!("Warning: fail to build doc");
-                failed = true;
-            }
-        }
-
-        spinner.stop();
-        if !failed {
-            async_print(line,
-                        4,
-                        &format!("{}{}✓{}",
-                                 cursor::Right(3),
-                                 color::Fg(color::Green),
-                                 color::Fg(color::Reset)));
-            async_print(line,
-                        9 + pos,
-                        &format!("{}{}done", cursor::Right(5 + pos), clear::UntilNewline));
-        }
     }
 }
 
@@ -182,7 +72,8 @@ fn install_plugins(name: Vec<String>,
                    on: Option<String>,
                    types: Option<Vec<String>>,
                    build: Option<String>,
-                   threads: usize)
+                   threads: usize,
+                   local: bool)
                    -> Result<()> {
     let mut packs = package::fetch()?;
 
@@ -196,6 +87,7 @@ fn install_plugins(name: Vec<String>,
         } else {
             let targets = name.into_iter().map(|ref n| {
                 let mut p = Package::new(n, &category, opt);
+                p.local = local;
                 if let Some(ref c) = on {
                     p.set_load_command(c);
                 }
@@ -231,7 +123,7 @@ fn install_plugins(name: Vec<String>,
                 manager.add(pack);
             }
         }
-        manager.run();
+        manager.run(install_plugin);
     }
 
     packs.sort_by(|a, b| a.name.cmp(&b.name));
@@ -244,9 +136,16 @@ fn install_plugin(pack: &Package) -> Result<()> {
     let path = pack.path();
     if path.is_dir() {
         Err(Error::plugin_installed(&path))
+    } else if pack.local {
+        let src = Path::new(&pack.name);
+        if !src.is_dir() {
+            Err(Error::NoPlugin)
+        } else {
+            symlink(&src, &path)?;
+            Ok(())
+        }
     } else {
-        let (user, repo) = pack.repo();
-        git::clone(user, repo, &pack.path())?;
+        git::clone(&pack.name, &pack.path())?;
         Ok(())
     }
 }
