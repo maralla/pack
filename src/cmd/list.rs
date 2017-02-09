@@ -7,6 +7,7 @@ List installed packages.
 
 Usage:
     pack list [(--start | --opt) --category CAT]
+    pack list -h | --help
 
 Options:
     -s, --start          Only list start packages
