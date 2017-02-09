@@ -49,6 +49,8 @@ pub struct Package {
     pub for_types: Vec<String>,
     /// Build command for this package
     pub build_command: Option<String>,
+    /// Local plugin
+    pub local: bool,
 }
 
 impl Package {
@@ -60,6 +62,7 @@ impl Package {
             load_command: None,
             for_types: Vec::new(),
             build_command: None,
+            local: false,
         }
     }
 
@@ -93,6 +96,7 @@ impl Package {
         let category = doc["category"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
         let cmd = doc["on"].as_str().map(|s| s.to_string());
         let build = doc["build"].as_str().map(|s| s.to_string());
+        let is_local = doc["local"].as_bool().unwrap_or(false);
 
         let types = match doc["for"].as_vec() {
             Some(f) => {
@@ -112,6 +116,7 @@ impl Package {
             load_command: cmd,
             for_types: types,
             build_command: build,
+            local: is_local,
         })
     }
 
@@ -120,6 +125,7 @@ impl Package {
         doc.insert(Yaml::from_str("name"), Yaml::from_str(&self.name));
         doc.insert(Yaml::from_str("category"), Yaml::from_str(&self.category));
         doc.insert(Yaml::from_str("opt"), Yaml::Boolean(self.opt));
+        doc.insert(Yaml::from_str("local"), Yaml::Boolean(self.local));
         if let Some(ref c) = self.load_command {
             doc.insert(Yaml::from_str("on"), Yaml::from_str(c));
         }
@@ -134,7 +140,12 @@ impl Package {
     }
 
     pub fn path(&self) -> PathBuf {
-        let (_, repo) = self.repo();
+        let repo = if self.local {
+            Path::new(&self.name).file_name().iter().flat_map(|e| e.to_str()).next().unwrap_or("")
+        } else {
+            let (_, repo) = self.repo();
+            repo
+        };
         if self.opt {
             PACK_DIR.join(&self.category).join("opt").join(repo)
         } else {
@@ -143,11 +154,15 @@ impl Package {
     }
 
     pub fn config_path(&self) -> PathBuf {
-        let name = self.name.replace("/", "-");
-        let fname = if name.ends_with(".vim") {
-            name
+        let fname = if self.local {
+            self.path().file_name().iter().flat_map(|e| e.to_str()).next().unwrap_or("").to_string()
         } else {
-            format!("{}.vim", &name)
+            let name = self.name.replace("/", "-");
+            if name.ends_with(".vim") {
+                name
+            } else {
+                format!("{}.vim", &name)
+            }
         };
         PACK_CONFIG_DIR.join(fname)
     }
