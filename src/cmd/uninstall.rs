@@ -8,7 +8,7 @@ const USAGE: &'static str = "
 Uninstall plugins.
 
 Usage:
-    pack uninstall <plugin>...
+    pack uninstall <plugin>... [options]
     pack uninstall -h | --help
 
 Options:

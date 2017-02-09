@@ -139,9 +139,14 @@ impl Package {
         Yaml::Hash(doc)
     }
 
+    #[inline]
+    fn basename(&self) -> &str {
+        Path::new(&self.name).file_name().iter().filter_map(|e| e.to_str()).next().unwrap_or("")
+    }
+
     pub fn path(&self) -> PathBuf {
         let repo = if self.local {
-            Path::new(&self.name).file_name().iter().flat_map(|e| e.to_str()).next().unwrap_or("")
+            self.basename()
         } else {
             let (_, repo) = self.repo();
             repo
@@ -154,15 +159,15 @@ impl Package {
     }
 
     pub fn config_path(&self) -> PathBuf {
-        let fname = if self.local {
-            self.path().file_name().iter().flat_map(|e| e.to_str()).next().unwrap_or("").to_string()
+        let name = if self.local {
+            self.basename().to_string()
         } else {
-            let name = self.name.replace("/", "-");
-            if name.ends_with(".vim") {
-                name
-            } else {
-                format!("{}.vim", &name)
-            }
+            self.name.replace("/", "-")
+        };
+        let fname = if name.ends_with(".vim") {
+            name
+        } else {
+            format!("{}.vim", &name)
         };
         PACK_CONFIG_DIR.join(fname)
     }
