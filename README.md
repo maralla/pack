@@ -5,6 +5,21 @@ Package manager for vim8.
 
 ![demo](http://i.imgur.com/mhkRXPZ.gif)
 
+Install
+-------
+
+Currently only macOS and Linux are supported.
+
+To install the already compiled binary, go to the [releases](https://github.com/maralla/pack/releases)
+page and download the proper compressed binary package:
+
+```
+$ v=v0.1.0
+$ os=x86_64-unknown-linux-gnu
+$ wget https://github.com/maralla/pack/releases/download/$v/pack-$v-$os.tar.gz
+$ tar -vxf pack-$v-$os.tar.gz
+```
+
 Usage
 -----
 
@@ -72,7 +87,7 @@ $ pack list
 Simple uninstall a plugin will not remove plugin config file. To remove a plugin
 config file use `pack uninstall <plugin> -a` or `pack config <plugin> -d`.
 
-````bash
+```bash
 $ pack uninstall maralla/completor.vim
 $ pack uninstall maralla/completor.vim maralla/completor-neosnippet
 ```
