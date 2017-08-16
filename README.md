@@ -8,12 +8,12 @@ Package manager for vim8.
 Install
 -------
 
-Currently only macOS and Linux are supported.
+Currently only macOS and Linux are supported and neovim is not supported.
 
 To install the already compiled binary, go to the [releases](https://github.com/maralla/pack/releases)
 page and download the proper compressed binary package:
 
-```
+```bash
 $ v=v0.1.0
 $ os=x86_64-unknown-linux-gnu
 $ wget https://github.com/maralla/pack/releases/download/$v/pack-$v-$os.tar.gz
