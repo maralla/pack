@@ -5,7 +5,7 @@ use Error;
 use package::Package;
 use chan;
 use echo;
-use termion::color;
+use termion::{terminal_size, color};
 use utils::Spinner;
 
 pub struct TaskManager {
@@ -76,32 +76,55 @@ impl TaskManager {
             die!("No plugins to syncing");
         }
 
-        let (tx, rx) = chan::sync(0);
-        let wg = chan::WaitGroup::new();
+        let y = match terminal_size() {
+            Err(e) => die!("Fail to get terminal size. {}", e),
+            Ok((_, y)) => y,
+        };
 
-        for _ in 0..self.thread_num {
-            wg.add(1);
-            let rx = rx.clone();
-            let wg = wg.clone();
-            thread::spawn(move || {
-                while let Some(Some((index, pack))) = rx.recv() {
-                    Self::update(&pack, index, func);
-                }
-                wg.done();
-            });
+        if y <= 2 {
+            die!("Terminal size too small.");
         }
 
-        let offset = self.packs.len() as u16 + 2;
-        for _ in 0..offset {
-            print!("\n");
-        }
-        for (i, pack) in self.packs.into_iter().enumerate() {
-            tx.send(Some((offset - i as u16 - 1, pack)));
-        }
+        let chunk_size = y as usize - 2;
+        let chunks = (self.packs.len() as f32 / chunk_size as f32).ceil();
 
-        for _ in 0..self.thread_num {
-            tx.send(None);
+        for (i, chunk) in self.packs.chunks(chunk_size).enumerate() {
+            let offset = chunk.len();
+            for _ in 0..offset {
+                print!("\n");
+            }
+
+            if i == 0 {
+                print!("\n");
+            }
+
+            let wg = chan::WaitGroup::new();
+            let (tx, rx) = chan::sync(0);
+
+            for _ in 0..self.thread_num {
+                wg.add(1);
+                let rx = rx.clone();
+                let wg = wg.clone();
+                thread::spawn(move || {
+                                  while let Some(Some((index, pack))) = rx.recv() {
+                                      Self::update(&pack, index, func);
+                                  }
+                                  wg.done();
+                              });
+            }
+
+            for (j, pack) in chunk.into_iter().enumerate() {
+                let o = if i == 0 { offset - j } else { offset - j };
+                tx.send(Some((o as u16, pack.clone())));
+            }
+            for _ in 0..self.thread_num {
+                tx.send(None);
+            }
+            wg.wait();
+
+            if i >= chunks as usize - 1 {
+                print!("\n");
+            }
         }
-        wg.wait();
     }
 }

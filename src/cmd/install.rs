@@ -43,8 +43,9 @@ pub fn execute(args: &[String]) {
     let mut argv = vec!["pack".to_string(), "install".to_string()];
     argv.extend_from_slice(args);
 
-    let args: InstallArgs =
-        Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
+    let args: InstallArgs = Docopt::new(USAGE)
+        .and_then(|d| d.argv(argv).decode())
+        .unwrap_or_else(|e| e.exit());
 
     let threads = args.flag_threads.unwrap_or(num_cpus::get());
     if threads < 1 {
@@ -85,20 +86,21 @@ fn install_plugins(name: Vec<String>,
                 manager.add(pack.clone());
             }
         } else {
-            let targets = name.into_iter().map(|ref n| {
-                let mut p = Package::new(n, &category, opt);
-                p.local = local;
-                if let Some(ref c) = on {
-                    p.set_load_command(c);
-                }
-                if let Some(ref t) = types {
-                    p.set_types(t.clone());
-                }
-                if let Some(ref c) = build {
-                    p.set_build_command(c);
-                }
-                p
-            });
+            let targets = name.into_iter()
+                .map(|ref n| {
+                    let mut p = Package::new(n, &category, opt);
+                    p.local = local;
+                    if let Some(ref c) = on {
+                        p.set_load_command(c);
+                    }
+                    if let Some(ref t) = types {
+                        p.set_types(t.clone());
+                    }
+                    if let Some(ref c) = build {
+                        p.set_build_command(c);
+                    }
+                    p
+                });
             for mut pack in targets.into_iter() {
                 let having = match packs.iter_mut().filter(|x| x.name == pack.name).next() {
                     Some(x) => {
