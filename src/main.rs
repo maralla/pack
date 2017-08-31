@@ -45,7 +45,7 @@ See pack help <command> for help on each command.
 
 #[derive(Debug, RustcDecodable)]
 struct Args {
-    arg_command: Command,
+    arg_command: Option<Command>,
     arg_args: Vec<String>,
 }
 
@@ -60,12 +60,12 @@ pub enum Command {
     Update,
 }
 
-fn execute(cmd: &Command, argv: &[String]) {
-    match *cmd {
+fn execute(cmd: Command, argv: &[String]) {
+    match cmd {
         Command::Help => {
             let cmd = cmd::help::execute(argv);
             let args = vec!["-h".to_string()];
-            execute(&cmd, &args);
+            execute(cmd, &args);
         }
         Command::List => cmd::list::execute(argv),
         Command::Install => cmd::install::execute(argv),
@@ -81,5 +81,8 @@ fn main() {
         .and_then(|d| d.options_first(true).decode())
         .unwrap_or_else(|e| e.exit());
 
-    execute(&args.arg_command, &args.arg_args);
+    match args.arg_command {
+        Some(c) => execute(c, &args.arg_args),
+        _ => println!("{}", USAGE)
+    }
 }
