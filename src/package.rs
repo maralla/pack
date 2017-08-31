@@ -182,12 +182,18 @@ impl Package {
     pub fn try_build(&self) -> Result<()> {
         if let Some(ref c) = self.build_command {
             let path = self.path();
-            process::Command::new("sh").arg("-c")
+            let p = process::Command::new("sh").arg("-c")
                 .arg(c)
-                .stdout(process::Stdio::null())
+                .stdout(process::Stdio::piped())
+                .stderr(process::Stdio::piped())
                 .current_dir(&path)
-                .spawn()?
-                .wait()?;
+                .spawn()?;
+            let output = p.wait_with_output()?;
+            if !output.status.success() {
+                let err = String::from_utf8(output.stderr)
+                    .unwrap_or(String::from("No error output!"));
+                return Err(Error::Build(err));
+            }
         }
         Ok(())
     }

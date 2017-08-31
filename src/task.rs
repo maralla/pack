@@ -53,7 +53,7 @@ impl TaskManager {
                     failed = true;
                 }
             }
-            if pack.path().join("doc").is_dir() {
+            if !failed && pack.path().join("doc").is_dir() {
                 echo::inline_message(line, 5 + pos, "building doc");
                 if let Err(_) = pack.try_build_help() {
                     print_err!("Warning: fail to build doc");
