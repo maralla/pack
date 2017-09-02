@@ -42,6 +42,7 @@ pub fn execute(args: &[String]) {
     }
     let skip = args.flag_skip.split(",")
         .map(|x| String::from(x.trim()))
+        .filter(|x| !x.is_empty())
         .collect();
 
     if let Err(e) = update_plugins(args.arg_plugin, threads, skip) {
@@ -50,7 +51,7 @@ pub fn execute(args: &[String]) {
 }
 
 fn update_plugins(plugins: Vec<String>, threads: usize, skip: Vec<String>) -> Result<()> {
-    let packs = package::fetch()?;
+    let mut packs = package::fetch()?;
 
     let mut manager = TaskManager::new(threads);
     if plugins.is_empty() {
@@ -67,6 +68,11 @@ fn update_plugins(plugins: Vec<String>, threads: usize, skip: Vec<String>) -> Re
         }
     }
     manager.run(update_plugin);
+
+    packs.sort_by(|a, b| a.name.cmp(&b.name));
+
+    package::update_pack_plugin(&packs)?;
+
     Ok(())
 }
 
