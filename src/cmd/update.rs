@@ -15,6 +15,8 @@ Usage:
     pack update -h | --help
 
 Options:
+    -p, --packfile          Regenerates the '_pack' file to combine all plugins
+                            configrations.
     -s, --skip SKIP         Comma separated list of plugins to skip
     -j, --threads THREADS   Update plugins concurrently
     -h, --help              Display this message
@@ -24,6 +26,7 @@ Options:
 struct UpdateArgs {
     arg_plugin: Vec<String>,
     flag_threads: Option<usize>,
+    flag_packfile: Option<bool>,
     flag_skip: String,
 }
 
@@ -35,6 +38,13 @@ pub fn execute(args: &[String]) {
         .and_then(|d| d.argv(argv)
         .decode())
         .unwrap_or_else(|e| e.exit());
+
+    if args.flag_packfile.is_some() {
+        if let Err(e) = update_packfile() {
+            die!("Err: {}", e);
+        }
+        return
+    }
 
     let threads = args.flag_threads.unwrap_or(num_cpus::get());
     if threads < 1 {
@@ -48,6 +58,16 @@ pub fn execute(args: &[String]) {
     if let Err(e) = update_plugins(args.arg_plugin, threads, skip) {
         die!("Err: {}", e);
     }
+}
+
+fn update_packfile() -> Result<()> {
+    println!("Update _pack file for all plugins.");
+    let mut packs = package::fetch()?;
+
+    packs.sort_by(|a, b| a.name.cmp(&b.name));
+    package::update_pack_plugin(&packs)?;
+
+    Ok(())
 }
 
 fn update_plugins(plugins: Vec<String>, threads: usize, skip: Vec<String>) -> Result<()> {
