@@ -7,6 +7,7 @@ use chan;
 use echo;
 use termion::{terminal_size, color};
 use utils::Spinner;
+use std::process;
 
 pub struct TaskManager {
     packs: Vec<Package>,
@@ -49,16 +50,9 @@ impl TaskManager {
             if pack.build_command.is_some() {
                 echo::inline_message(line, 5 + pos, "building");
                 if let Err(e) = pack.try_build().map_err(|e| Error::build(format!("{}", e))) {
-                    print_err!(e);
-                    failed = true;
-                }
-            }
-            if !failed && pack.path().join("doc").is_dir() {
-                echo::inline_message(line, 5 + pos, "building doc");
-                if let Err(_) = pack.try_build_help() {
-                    print_err!("Warning: fail to build doc");
-                    failed = true;
-                }
+                        print_err!(e);
+                        failed = true;
+                    }
             }
 
             spinner.stop();
@@ -106,11 +100,11 @@ impl TaskManager {
                 let rx = rx.clone();
                 let wg = wg.clone();
                 thread::spawn(move || {
-                                  while let Some(Some((index, pack))) = rx.recv() {
-                                      Self::update(&pack, index, func);
-                                  }
-                                  wg.done();
-                              });
+                    while let Some(Some((index, pack))) = rx.recv() {
+                        Self::update(&pack, index, func);
+                    }
+                    wg.done();
+                });
             }
 
             for (j, pack) in chunk.into_iter().enumerate() {
@@ -126,5 +120,14 @@ impl TaskManager {
                 print!("\n");
             }
         }
+
+        process::Command::new("vim")
+            .arg("--not-a-term")
+            .arg("-c")
+            .arg("silent! helptags ALL")
+            .stdout(process::Stdio::null())
+            .spawn()
+            .expect("Something went wrong!");
     }
+
 }
