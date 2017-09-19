@@ -182,27 +182,18 @@ impl Package {
     pub fn try_build(&self) -> Result<()> {
         if let Some(ref c) = self.build_command {
             let path = self.path();
-            process::Command::new("sh").arg("-c")
+            let p = process::Command::new("sh").arg("-c")
                 .arg(c)
-                .stdout(process::Stdio::null())
+                .stdout(process::Stdio::piped())
+                .stderr(process::Stdio::piped())
                 .current_dir(&path)
-                .spawn()?
-                .wait()?;
-        }
-        Ok(())
-    }
-
-    pub fn try_build_help(&self) -> Result<()> {
-        let path = self.path().join("doc");
-        if path.is_dir() {
-            process::Command::new("vim").arg("--not-a-term")
-                .arg("-c")
-                .arg(format!("helptags {}", path.to_string_lossy()))
-                .arg("-c")
-                .arg("q")
-                .stdout(process::Stdio::null())
-                .spawn()?
-                .wait()?;
+                .spawn()?;
+            let output = p.wait_with_output()?;
+            if !output.status.success() {
+                let err = String::from_utf8(output.stderr)
+                    .unwrap_or(String::from("No error output!"));
+                return Err(Error::Build(err));
+            }
         }
         Ok(())
     }

@@ -24,10 +24,29 @@ pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
     let oid = repo.refname_to_id(reference)?;
     let object = repo.find_object(oid, None)?;
     repo.reset(&object, git2::ResetType::Hard, None)?;
+    update_submodules(&repo)?;
     Ok(())
 }
 
 pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<()> {
     let repo = Repository::open(&path)?;
     fetch(&repo, name)
+}
+fn update_submodules(repo: &Repository) -> Result<()> {
+
+    fn add_subrepos(repo: &Repository, list: &mut Vec<Repository>)
+        -> Result<()> {
+            for mut subm in repo.submodules()? {
+                subm.update(true, None)?;
+                list.push(subm.open()?);
+            }
+            Ok(())
+        }
+
+    let mut repos = Vec::new();
+    add_subrepos(repo, &mut repos)?;
+    while let Some(r) = repos.pop() {
+        add_subrepos(&r, &mut repos)?;
+    }
+    Ok(())
 }
