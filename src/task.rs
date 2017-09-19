@@ -27,7 +27,8 @@ impl TaskManager {
     }
 
     fn update<F>(pack: &Package, line: u16, func: F)
-        where F: Fn(&Package) -> Result<()>
+    where
+        F: Fn(&Package) -> Result<()>,
     {
         let msg = format!(" [{}]", &pack.name);
         let pos = msg.len() as u16;
@@ -50,9 +51,9 @@ impl TaskManager {
             if pack.build_command.is_some() {
                 echo::inline_message(line, 5 + pos, "building");
                 if let Err(e) = pack.try_build().map_err(|e| Error::build(format!("{}", e))) {
-                        print_err!(e);
-                        failed = true;
-                    }
+                    print_err!(e);
+                    failed = true;
+                }
             }
 
             spinner.stop();
@@ -64,7 +65,8 @@ impl TaskManager {
     }
 
     pub fn run<F>(self, func: F)
-        where F: Fn(&Package) -> Result<()> + Send + 'static + Copy
+    where
+        F: Fn(&Package) -> Result<()> + Send + 'static + Copy,
     {
         if self.packs.is_empty() {
             die!("No plugins to syncing");
@@ -79,47 +81,46 @@ impl TaskManager {
             die!("Terminal size too small.");
         }
 
-        let chunk_size = y as usize - 2;
-        let chunks = (self.packs.len() as f32 / chunk_size as f32).ceil();
+        let wg = chan::WaitGroup::new();
+        let jobs = chan::WaitGroup::new();
+        let (tx, rx) = chan::sync(0);
 
-        for (i, chunk) in self.packs.chunks(chunk_size).enumerate() {
+        for _ in 0..self.thread_num {
+            wg.add(1);
+            let rx = rx.clone();
+            let wg = wg.clone();
+            let jobs = jobs.clone();
+            thread::spawn(move || while let Some(Some((index, pack))) = rx.recv() {
+                jobs.add(1);
+                Self::update(&pack, index, func);
+                jobs.done();
+            });
+            wg.done();
+        }
+
+        if !self.packs.is_empty() {
+            print!("\n");
+        }
+        for chunk in self.packs.chunks(y as usize - 2) {
             let offset = chunk.len();
             for _ in 0..offset {
                 print!("\n");
             }
 
-            if i == 0 {
-                print!("\n");
-            }
-
-            let wg = chan::WaitGroup::new();
-            let (tx, rx) = chan::sync(0);
-
-            for _ in 0..self.thread_num {
-                wg.add(1);
-                let rx = rx.clone();
-                let wg = wg.clone();
-                thread::spawn(move || {
-                    while let Some(Some((index, pack))) = rx.recv() {
-                        Self::update(&pack, index, func);
-                    }
-                    wg.done();
-                });
-            }
-
             for (j, pack) in chunk.into_iter().enumerate() {
-                let o = if i == 0 { offset - j } else { offset - j };
+                let o = offset - j;
                 tx.send(Some((o as u16, pack.clone())));
             }
-            for _ in 0..self.thread_num {
-                tx.send(None);
-            }
-            wg.wait();
-
-            if i >= chunks as usize - 1 {
-                print!("\n");
-            }
+            jobs.wait();
         }
+        if !self.packs.is_empty() {
+            print!("\n");
+        }
+
+        for _ in 0..self.thread_num {
+            tx.send(None);
+        }
+        wg.wait();
 
         process::Command::new("vim")
             .arg("--not-a-term")
@@ -129,5 +130,4 @@ impl TaskManager {
             .spawn()
             .expect("Something went wrong!");
     }
-
 }
