@@ -36,6 +36,7 @@ Commands:
     config
     move
     update
+    generate
     version
 
 Options:
@@ -60,6 +61,7 @@ pub enum Command {
     Config,
     Move,
     Update,
+    Generate,
 }
 
 fn execute(cmd: &Command, argv: &[String]) {
@@ -76,13 +78,17 @@ fn execute(cmd: &Command, argv: &[String]) {
         Command::Config => cmd::config::execute(argv),
         Command::Move => cmd::move_cmd::execute(argv),
         Command::Update => cmd::update::execute(argv),
+        Command::Generate => cmd::generate::execute(argv),
     }
 }
 
 fn main() {
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.options_first(true).decode())
-        .unwrap_or_else(|e| e.exit());
+        .unwrap_or_else(|_|{
+            println!("{}", USAGE);
+            std::process::exit(1)
+        });
 
     match args.arg_command {
         Some(ref c) => execute(c, &args.arg_args),
