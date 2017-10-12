@@ -260,8 +260,8 @@ pub fn save(packs: Vec<Package>) -> Result<()> {
         fs::create_dir_all(&*PACK_CONFIG_DIR)?;
     }
     let mut f = File::create(&*PACK_FILE)?;
-    f.write(PACKFILE_HEADER)?;
-    f.write(out.as_bytes())?;
+    f.write_all(PACKFILE_HEADER)?;
+    f.write_all(out.as_bytes())?;
     Ok(())
 }
 
