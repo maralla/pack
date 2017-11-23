@@ -24,9 +24,9 @@ Usage
 -----
 
 All tasks should be done through `pack` command. `pack` will create a file named
-*packfile* under `$VIM_CONFIG_DIR/.pack/` and all plugins are tracked in the file.
-Plugin config files are stored under `$VIM_CONFIG_DIR/.pack/`. The config files
-will be concatenated and stored under `$VIM_CONFIG_DIR/plugin/_pack.vim` automatically.
+*packfile* under `$VIM_CONFIG_PATH/.pack/` and all plugins are tracked in the file.
+Plugin config files are stored under `$VIM_CONFIG_PATH/.pack/`. The config files
+will be concatenated and stored under `$VIM_CONFIG_PATH/plugin/_pack.vim` automatically.
 These files are all managed by `pack`. Never change the files manually.
 
 #### `pack` command
