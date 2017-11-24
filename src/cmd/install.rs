@@ -53,29 +53,34 @@ pub fn execute(args: &[String]) {
     }
 
     let opt = args.flag_on.is_some() || args.flag_for.is_some() || args.flag_opt;
-    let types = args.flag_for
-        .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
-    if let Err(e) = install_plugins(args.arg_plugin,
-                                    args.flag_category,
-                                    opt,
-                                    args.flag_on,
-                                    types,
-                                    args.flag_build,
-                                    threads,
-                                    args.flag_local) {
+    let types = args.flag_for.map(|e| {
+        e.split(',').map(|e| e.to_string()).collect::<Vec<String>>()
+    });
+    if let Err(e) = install_plugins(
+        args.arg_plugin,
+        args.flag_category,
+        opt,
+        args.flag_on,
+        types,
+        args.flag_build,
+        threads,
+        args.flag_local,
+    )
+    {
         die!("Err: {}", e);
     }
 }
 
-fn install_plugins(name: Vec<String>,
-                   category: String,
-                   opt: bool,
-                   on: Option<String>,
-                   types: Option<Vec<String>>,
-                   build: Option<String>,
-                   threads: usize,
-                   local: bool)
-                   -> Result<()> {
+fn install_plugins(
+    name: Vec<String>,
+    category: String,
+    opt: bool,
+    on: Option<String>,
+    types: Option<Vec<String>>,
+    build: Option<String>,
+    threads: usize,
+    local: bool,
+) -> Result<()> {
     let mut packs = package::fetch()?;
 
     {
@@ -86,21 +91,20 @@ fn install_plugins(name: Vec<String>,
                 manager.add(pack.clone());
             }
         } else {
-            let targets = name.into_iter()
-                .map(|ref n| {
-                    let mut p = Package::new(n, &category, opt);
-                    p.local = local;
-                    if let Some(ref c) = on {
-                        p.set_load_command(c);
-                    }
-                    if let Some(ref t) = types {
-                        p.set_types(t.clone());
-                    }
-                    if let Some(ref c) = build {
-                        p.set_build_command(c);
-                    }
-                    p
-                });
+            let targets = name.into_iter().map(|ref n| {
+                let mut p = Package::new(n, &category, opt);
+                p.local = if Path::new(n).is_dir() { true } else { local };
+                if let Some(ref c) = on {
+                    p.set_load_command(c);
+                }
+                if let Some(ref t) = types {
+                    p.set_types(t.clone());
+                }
+                if let Some(ref c) = build {
+                    p.set_build_command(c);
+                }
+                p
+            });
             for mut pack in targets.into_iter() {
                 let having = match packs.iter_mut().filter(|x| x.name == pack.name).next() {
                     Some(x) => {
@@ -147,7 +151,7 @@ fn install_plugin(pack: &Package) -> Result<()> {
             Ok(())
         }
     } else {
-        git::clone(&pack.name, &pack.path())?;
+        git::clone(&pack.name, &path)?;
         Ok(())
     }
 }

@@ -10,11 +10,13 @@ pub fn async_print(line: u16, right: u16, msg: &str) {
 
     let _ = MUTEX.lock().unwrap();
     print!("{}", cursor::Hide);
-    print!("{}{}{}{}",
-           cursor::Up(line),
-           msg,
-           cursor::Left(right),
-           cursor::Down(line));
+    print!(
+        "{}{}{}{}",
+        cursor::Up(line),
+        msg,
+        cursor::Left(right),
+        cursor::Down(line)
+    );
     print!("{}", cursor::Show);
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -22,19 +24,25 @@ pub fn async_print(line: u16, right: u16, msg: &str) {
 }
 
 pub fn character<C: color::Color>(line: u16, offset: u16, c: char, char_color: C) {
-    async_print(line,
-                offset + 1,
-                &format!("{}{}{}{}",
-                         cursor::Right(offset),
-                         color::Fg(char_color),
-                         c,
-                         color::Fg(color::Reset)));
+    async_print(
+        line,
+        offset + 1,
+        &format!(
+            "{}{}{}{}",
+            cursor::Right(offset),
+            color::Fg(char_color),
+            c,
+            color::Fg(color::Reset)
+        ),
+    );
 }
 
 pub fn inline_message(line: u16, offset: u16, msg: &str) {
-    async_print(line,
-                offset + msg.len() as u16,
-                &format!("{}{}{}", cursor::Right(offset), clear::UntilNewline, msg));
+    async_print(
+        line,
+        offset + msg.len() as u16,
+        &format!("{}{}{}", cursor::Right(offset), clear::UntilNewline, msg),
+    );
 }
 
 pub fn message(line: u16, offset: u16, msg: &str) {
