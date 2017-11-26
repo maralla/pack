@@ -1,6 +1,6 @@
 [root]
 name = "pack"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chan 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "docopt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
