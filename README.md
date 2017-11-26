@@ -29,6 +29,13 @@ Plugin config files are stored under `$VIM_CONFIG_PATH/.pack/`. The config files
 will be concatenated and stored under `$VIM_CONFIG_PATH/plugin/_pack.vim` automatically.
 These files are all managed by `pack`. Never change the files manually.
 
+By default, if `$VIM_CONFIG_PATH` is not set, `pack` will create and install all files under `~/.vim`(default vim packagepath). 
+If using custom location by setting `$VIM_CONFIG_PATH` variable, you need to add the following at the top of your `.vimrc`:
+
+```
+set packpath+=$VIM_CONFIG_PATH/vim
+```
+
 #### `pack` command
 
 ```bash
