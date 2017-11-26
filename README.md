@@ -33,7 +33,7 @@ By default, if `$VIM_CONFIG_PATH` is not set, `pack` will create and install all
 If using custom location by setting `$VIM_CONFIG_PATH` variable, you need to add the following at the top of your `.vimrc`:
 
 ```
-set packpath+=$VIM_CONFIG_PATH/vim
+set packpath+=$VIM_CONFIG_PATH
 ```
 
 #### `pack` command
