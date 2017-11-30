@@ -20,6 +20,7 @@ struct HelpArgs {
 pub fn execute(args: &[String]) -> Command {
     let mut argv = vec!["pack".to_string(), "help".to_string()];
     argv.extend_from_slice(args);
+    println!("{:?}", argv);
 
     let args: HelpArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());

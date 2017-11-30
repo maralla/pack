@@ -36,6 +36,7 @@ Commands:
     config
     move
     update
+    version
 
 Options:
     -h, --help      Display this message
@@ -51,6 +52,7 @@ struct Args {
 
 #[derive(Debug, RustcDecodable)]
 pub enum Command {
+    Version,
     Help,
     List,
     Install,
@@ -62,6 +64,7 @@ pub enum Command {
 
 fn execute(cmd: Command, argv: &[String]) {
     match cmd {
+        Command::Version => cmd::version::execute(argv),
         Command::Help => {
             let cmd = cmd::help::execute(argv);
             let args = vec!["-h".to_string()];
