@@ -106,3 +106,8 @@ $ pack update
 $ pack update maralla/completor.vim
 $ pack update maralla/completor.vim maralla/completor-neosnippet
 ```
+
+License
+-------
+
+Distributed under the terms of the [MIT](LICENSE) license.
