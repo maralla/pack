@@ -5,7 +5,7 @@ use docopt::Docopt;
 use git;
 use task::TaskManager;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Update plugins.
 
 Usage:
@@ -46,16 +46,16 @@ pub fn execute(args: &[String]) {
         return
     }
 
-    let threads = args.flag_threads.unwrap_or(num_cpus::get());
+    let threads = args.flag_threads.unwrap_or_else(num_cpus::get);
     if threads < 1 {
         die!("Threads should be greater than 0");
     }
-    let skip = args.flag_skip.split(",")
+    let skip : Vec<String>= args.flag_skip.split(',')
         .map(|x| String::from(x.trim()))
         .filter(|x| !x.is_empty())
         .collect();
 
-    if let Err(e) = update_plugins(args.arg_plugin, threads, skip) {
+    if let Err(e) = update_plugins(&args.arg_plugin, threads, &skip) {
         die!("Err: {}", e);
     }
 }
@@ -70,12 +70,12 @@ fn update_packfile() -> Result<()> {
     Ok(())
 }
 
-fn update_plugins(plugins: Vec<String>, threads: usize, skip: Vec<String>) -> Result<()> {
+fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result<()> {
     let mut packs = package::fetch()?;
 
     let mut manager = TaskManager::new(threads);
     if plugins.is_empty() {
-        for pack in packs.iter() {
+        for pack in &packs {
             if skip.iter().any(|x| pack.name.contains(x)) {
                 println!("Skip {}", pack.name);
                 continue

@@ -99,12 +99,12 @@ impl TaskManager {
         }
 
         if !self.packs.is_empty() {
-            print!("\n");
+            println!();
         }
         for chunk in self.packs.chunks(y as usize - 2) {
             let offset = chunk.len();
             for _ in 0..offset {
-                print!("\n");
+                println!();
             }
 
             for (j, pack) in chunk.into_iter().enumerate() {
@@ -114,7 +114,7 @@ impl TaskManager {
             jobs.wait();
         }
         if !self.packs.is_empty() {
-            print!("\n");
+            println!();
         }
 
         for _ in 0..self.thread_num {

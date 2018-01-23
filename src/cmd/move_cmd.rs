@@ -5,7 +5,7 @@ use package;
 use utils;
 use docopt::Docopt;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Move a plugin to a different category.
 
 Usage:
@@ -30,15 +30,18 @@ pub fn execute(args: &[String]) {
 
     let args: MoveArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
-    if let Err(e) = move_plugin(args.arg_plugin, args.arg_category, args.flag_opt) {
-        die!("{}", e);
-    }
+    if let Err(e) = move_plugin(
+        &args.arg_plugin,
+        &args.arg_category,
+        args.flag_opt) {
+            die!("{}", e);
+        }
 }
 
-fn move_plugin(plugin: String, category: String, opt: bool) -> Result<()> {
+fn move_plugin(plugin: &str, category: &str, opt: bool) -> Result<()> {
     let mut packs = package::fetch()?;
     let changed = {
-        let pack = match packs.iter_mut().filter(|p| p.name == plugin).next() {
+        let pack = match packs.iter_mut().find(|p| p.name == plugin) {
             Some(p) => p,
             None => return Err(Error::PluginNotInstalled),
         };
@@ -48,11 +51,11 @@ fn move_plugin(plugin: String, category: String, opt: bool) -> Result<()> {
             return Err(Error::PluginNotInstalled);
         }
 
-        let path = package::Package::new(&plugin, &category, opt).path();
+        let path = package::Package::new(plugin, category, opt).path();
         if origin_path != path {
             utils::copy_directory(&origin_path, &path)?;
             fs::remove_dir_all(&origin_path)?;
-            pack.set_category(&category as &str);
+            pack.set_category(category as &str);
             pack.set_opt(opt);
             true
         } else {

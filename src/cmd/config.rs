@@ -6,7 +6,7 @@ use docopt::Docopt;
 use utils;
 use package;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Config a plugin.
 
 Usage:
@@ -38,7 +38,7 @@ pub fn execute(args: &[String]) {
 fn config_plugin(name: &str, delete: bool) -> Result<()> {
     let packs = package::fetch()?;
     let temp_pack = package::Package::new(name, "temp", true);
-    let pack = packs.iter().filter(|x| name == x.name).next().unwrap_or(&temp_pack);
+    let pack = packs.iter().find(|x| name == x.name).unwrap_or(&temp_pack);
 
     let path = pack.config_path();
 
@@ -71,7 +71,7 @@ fn config_plugin(name: &str, delete: bool) -> Result<()> {
         Ok(m) => m,
     };
 
-    if meta.len() <= 0 {
+    if meta.len() == 0 {
         fs::remove_file(&path)?;
         if modified.is_some() {
             package::update_pack_plugin(&packs)?;

@@ -1,6 +1,6 @@
 use docopt::Docopt;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Show version number.
 
 Usage:
@@ -11,7 +11,7 @@ Options:
     -h, --help      Display this message
 ";
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, RustcDecodable)]
 struct VersionArgs {}

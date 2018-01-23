@@ -13,13 +13,13 @@ use echo;
 
 const SPINNER_CHARS: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇',
                                    '⠏'];
-const DEFAULT_EDITOR: &'static str = "vi";
+const DEFAULT_EDITOR: &str = "vi";
 
 macro_rules! die {
     ($($arg:tt)*) => ({
         use std::io::Write;
         (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
-        ::std::process::exit(1);
+        ::std::process::exit(1)
     })
 }
 
@@ -32,7 +32,7 @@ impl Spinner {
     pub fn spin(x: u16, y: u16) -> Spinner {
         let (tx, rx) = channel();
         let handle = thread::spawn(move || for &c in SPINNER_CHARS.iter().cycle() {
-                                       if let Ok(_) = rx.try_recv() {
+                                       if rx.try_recv().is_ok() {
                                            break;
                                        }
 
@@ -52,7 +52,8 @@ impl Spinner {
 }
 
 pub fn copy_directory<P: AsRef<Path>>(src: P, dst: P) -> Result<()> {
-    for entry in WalkDir::new(&src).into_iter() {
+    let wd = WalkDir::new(&src);
+    for entry in wd {
         let e = entry?;
         let path = e.path();
         let stem = path.strip_prefix(&src)?;
@@ -75,7 +76,7 @@ fn get_editor() -> Option<String> {
                  .into_iter()
                  .chain(env::var("EDITOR"))
                  .next()
-                 .unwrap_or(DEFAULT_EDITOR.to_string()))
+                 .unwrap_or_else(|| String::from(DEFAULT_EDITOR)))
     }
 }
 

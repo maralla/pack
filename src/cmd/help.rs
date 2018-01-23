@@ -1,7 +1,7 @@
 use docopt::Docopt;
 use Command;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Help on each command.
 
 Usage:
