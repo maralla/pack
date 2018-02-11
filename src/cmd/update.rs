@@ -87,7 +87,10 @@ fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result
             manager.add(pack.clone());
         }
     }
-    manager.run(update_plugin);
+
+    for fail in manager.run(update_plugin) {
+        packs.retain(|e| e.name != fail);
+    }
 
     packs.sort_by(|a, b| a.name.cmp(&b.name));
 

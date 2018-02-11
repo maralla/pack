@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::fs;
 
 use Result;
 use git2::{self, Repository};
@@ -17,7 +18,7 @@ fn fetch(repo: &Repository, name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
+fn clone_real<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
     let repo = git2::Repository::init(&target)?;
     fetch(&repo, name)?;
     let reference = "HEAD";
@@ -26,6 +27,14 @@ pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
     repo.reset(&object, git2::ResetType::Hard, None)?;
     update_submodules(&repo)?;
     Ok(())
+}
+
+pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
+    let result = clone_real(name, &target);
+    if result.is_err() {
+        fs::remove_dir_all(&target)?;
+    }
+    result
 }
 
 pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<()> {

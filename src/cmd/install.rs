@@ -140,7 +140,10 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
                 manager.add(pack);
             }
         }
-        manager.run(install_plugin);
+
+        for fail in manager.run(install_plugin) {
+            packs.retain(|e| e.name != fail);
+        }
     }
 
     packs.sort_by(|a, b| a.name.cmp(&b.name));
