@@ -23,7 +23,7 @@ mod echo;
 pub use error::{Result, Error};
 use docopt::Docopt;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Usage:
     pack <command> [<args>...]
     pack [options]
@@ -62,13 +62,13 @@ pub enum Command {
     Update,
 }
 
-fn execute(cmd: Command, argv: &[String]) {
-    match cmd {
+fn execute(cmd: &Command, argv: &[String]) {
+    match *cmd {
         Command::Version => cmd::version::execute(argv),
         Command::Help => {
             let cmd = cmd::help::execute(argv);
             let args = vec!["-h".to_string()];
-            execute(cmd, &args);
+            execute(&cmd, &args);
         }
         Command::List => cmd::list::execute(argv),
         Command::Install => cmd::install::execute(argv),
@@ -85,7 +85,7 @@ fn main() {
         .unwrap_or_else(|e| e.exit());
 
     match args.arg_command {
-        Some(c) => execute(c, &args.arg_args),
+        Some(ref c) => execute(c, &args.arg_args),
         _ => println!("{}", USAGE)
     }
 }

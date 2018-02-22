@@ -8,7 +8,7 @@ use git;
 use num_cpus;
 use task::TaskManager;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Install plugins.
 
 Usage:
@@ -39,6 +39,17 @@ struct InstallArgs {
     flag_build: Option<String>,
 }
 
+struct Plugins {
+    names: Vec<String>,
+    category: String,
+    opt: bool,
+    on: Option<String>,
+    types: Option<Vec<String>>,
+    build: Option<String>,
+    threads: usize,
+    local: bool,
+}
+
 pub fn execute(args: &[String]) {
     let mut argv = vec!["pack".to_string(), "install".to_string()];
     argv.extend_from_slice(args);
@@ -47,7 +58,11 @@ pub fn execute(args: &[String]) {
         .and_then(|d| d.argv(argv).decode())
         .unwrap_or_else(|e| e.exit());
 
-    let threads = args.flag_threads.unwrap_or(num_cpus::get());
+    let threads = match args.flag_threads {
+        Some(t) => t,
+        _ => num_cpus::get()
+    };
+
     if threads < 1 {
         die!("Threads should be greater than 0");
     }
@@ -56,57 +71,53 @@ pub fn execute(args: &[String]) {
     let types = args.flag_for.map(|e| {
         e.split(',').map(|e| e.to_string()).collect::<Vec<String>>()
     });
-    if let Err(e) = install_plugins(
-        args.arg_plugin,
-        args.flag_category,
-        opt,
-        args.flag_on,
-        types,
-        args.flag_build,
-        threads,
-        args.flag_local,
-    )
-    {
+
+    let plugins = Plugins {
+        names: args.arg_plugin,
+        category: args.flag_category,
+        opt: opt,
+        on: args.flag_on,
+        types: types,
+        build: args.flag_build,
+        threads: threads,
+        local: args.flag_local
+    };
+
+    if let Err(e) = install_plugins(&plugins) {
         die!("Err: {}", e);
     }
 }
 
-fn install_plugins(
-    name: Vec<String>,
-    category: String,
-    opt: bool,
-    on: Option<String>,
-    types: Option<Vec<String>>,
-    build: Option<String>,
-    threads: usize,
-    local: bool,
-) -> Result<()> {
+fn install_plugins( plugins: &Plugins,) -> Result<()> {
     let mut packs = package::fetch()?;
-
     {
-        let mut manager = TaskManager::new(threads);
+        let mut manager = TaskManager::new(plugins.threads);
 
-        if name.is_empty() {
-            for pack in packs.iter() {
+        if plugins.names.is_empty() {
+            for pack in &packs {
                 manager.add(pack.clone());
             }
         } else {
-            let targets = name.into_iter().map(|ref n| {
-                let mut p = Package::new(n, &category, opt);
-                p.local = if Path::new(n).is_dir() { true } else { local };
-                if let Some(ref c) = on {
+            let targets = plugins.names.iter().map(|n| {
+                let mut p = Package::new(n, &plugins.category, plugins.opt);
+                p.local = if Path::new(n).is_dir() {
+                    true
+                } else {
+                    plugins.local
+                };
+                if let Some(ref c) = plugins.on {
                     p.set_load_command(c);
                 }
-                if let Some(ref t) = types {
+                if let Some(ref t) = plugins.types {
                     p.set_types(t.clone());
                 }
-                if let Some(ref c) = build {
+                if let Some(ref c) = plugins.build {
                     p.set_build_command(c);
                 }
                 p
             });
-            for mut pack in targets.into_iter() {
-                let having = match packs.iter_mut().filter(|x| x.name == pack.name).next() {
+            for mut pack in targets {
+                let having = match packs.iter_mut().find(|x| x.name == pack.name) {
                     Some(x) => {
                         if !x.is_installed() {
                             x.set_category(pack.category.as_str());

@@ -3,7 +3,7 @@ use std::path::Path;
 use Result;
 use git2::{self, Repository};
 
-const LOCATION: &'static str = "https://github.com";
+const LOCATION: &str = "https://github.com";
 
 fn fetch(repo: &Repository, name: &str) -> Result<()> {
     let url = format!("{}/{}", LOCATION, name);

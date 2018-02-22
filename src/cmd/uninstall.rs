@@ -4,7 +4,7 @@ use Result;
 use package::{self, Package};
 use docopt::Docopt;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Uninstall plugins.
 
 Usage:
@@ -29,16 +29,16 @@ pub fn execute(args: &[String]) {
     let args: UninstallArgs =
         Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
 
-    if let Err(e) = uninstall_plugins(args.arg_plugin, args.flag_all) {
+    if let Err(e) = uninstall_plugins(&args.arg_plugin, args.flag_all) {
         die!("{}", e);
     }
 }
 
-fn uninstall_plugins(plugins: Vec<String>, all: bool) -> Result<()> {
+fn uninstall_plugins(plugins: &[String], all: bool) -> Result<()> {
     let mut packs = package::fetch()?;
 
     for pack in packs.iter().filter(|p| plugins.contains(&p.name)) {
-        uninstall_plugin(&pack, all)?;
+        uninstall_plugin(pack, all)?;
     }
 
     packs.retain(|x| !plugins.contains(&x.name));

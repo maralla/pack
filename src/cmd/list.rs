@@ -2,7 +2,7 @@ use Result;
 use docopt::Docopt;
 use package::{self, Package};
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 List installed packages.
 
 Usage:
@@ -55,7 +55,7 @@ fn list_packages(start: bool, opt: bool, cat: Option<String>) -> Result<()> {
     if res.is_empty() {
         println!("No plugin installed.");
     } else {
-        for p in res.iter() {
+        for p in &res {
             println!("{}", p);
         }
     }
