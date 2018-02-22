@@ -60,7 +60,7 @@ pub fn execute(args: &[String]) {
 
     let threads = match args.flag_threads {
         Some(t) => t,
-        _ => num_cpus::get()
+        _ => num_cpus::get(),
     };
 
     if threads < 1 {
@@ -80,7 +80,7 @@ pub fn execute(args: &[String]) {
         types: types,
         build: args.flag_build,
         threads: threads,
-        local: args.flag_local
+        local: args.flag_local,
     };
 
     if let Err(e) = install_plugins(&plugins) {
@@ -88,7 +88,7 @@ pub fn execute(args: &[String]) {
     }
 }
 
-fn install_plugins( plugins: &Plugins,) -> Result<()> {
+fn install_plugins(plugins: &Plugins) -> Result<()> {
     let mut packs = package::fetch()?;
     {
         let mut manager = TaskManager::new(plugins.threads);

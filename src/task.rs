@@ -1,5 +1,5 @@
 use std::thread;
-
+use std::cmp;
 use Result;
 use Error;
 use package::Package;
@@ -81,27 +81,23 @@ impl TaskManager {
             die!("Terminal size too small.");
         }
 
-        let wg = chan::WaitGroup::new();
         let jobs = chan::WaitGroup::new();
         let (tx, rx) = chan::sync(0);
 
         for _ in 0..self.thread_num {
-            wg.add(1);
             let rx = rx.clone();
-            let wg = wg.clone();
             let jobs = jobs.clone();
             thread::spawn(move || while let Some(Some((index, pack))) = rx.recv() {
                 jobs.add(1);
                 Self::update(&pack, index, func);
                 jobs.done();
             });
-            wg.done();
         }
 
         if !self.packs.is_empty() {
             println!();
         }
-        for chunk in self.packs.chunks(y as usize - 2) {
+        for chunk in self.packs.chunks(cmp::min(y as usize - 2, self.thread_num)) {
             let offset = chunk.len();
             for _ in 0..offset {
                 println!();
@@ -120,7 +116,7 @@ impl TaskManager {
         for _ in 0..self.thread_num {
             tx.send(None);
         }
-        wg.wait();
+        jobs.wait();
 
         process::Command::new("vim")
             .arg("--not-a-term")
