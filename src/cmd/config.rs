@@ -1,36 +1,30 @@
 use std::fs;
 use std::io::ErrorKind;
 
-use {Result, Error};
-use docopt::Docopt;
+use {Error, Result};
+use clap::ArgMatches;
 use utils;
 use package;
 
-const USAGE: &str = "
-Config a plugin.
-
-Usage:
-    pack config <plugin> [options]
-    pack config -h | --help
-
-Options:
-    -d, --delete            Delete config file
-    -h, --help              Display this message
-";
-
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug)]
 struct ConfigArgs {
-    arg_plugin: String,
-    flag_delete: bool,
+    plugin: String,
+    delete: bool,
 }
 
-pub fn execute(args: &[String]) {
-    let mut argv = vec!["pack".to_string(), "config".to_string()];
-    argv.extend_from_slice(args);
+impl ConfigArgs {
+    fn from_matches(m: &ArgMatches) -> ConfigArgs {
+        ConfigArgs {
+            plugin: value_t!(m, "package", String).unwrap_or_default(),
+            delete: m.is_present("delete"),
+        }
+    }
+}
 
-    let args: ConfigArgs =
-        Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
-    if let Err(e) = config_plugin(&args.arg_plugin, args.flag_delete) {
+pub fn exec(matches: &ArgMatches) {
+    let args = ConfigArgs::from_matches(matches);
+
+    if let Err(e) = config_plugin(&args.plugin, args.delete) {
         die!("{}", e);
     }
 }

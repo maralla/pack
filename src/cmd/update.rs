@@ -1,61 +1,45 @@
 use {Error, Result};
 use package::{self, Package};
 use num_cpus;
-use docopt::Docopt;
 use git;
 use task::TaskManager;
+use clap::ArgMatches;
 
-const USAGE: &str = "
-Update plugins.
-
-Usage:
-    pack update
-    pack update [options]
-    pack update [options] <plugin>...
-    pack update -h | --help
-
-Options:
-    -p, --packfile          Regenerates the '_pack' file to combine all plugins
-                            configrations.
-    -s, --skip SKIP         Comma separated list of plugins to skip
-    -j, --threads THREADS   Update plugins concurrently
-    -h, --help              Display this message
-";
-
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug)]
 struct UpdateArgs {
-    arg_plugin: Vec<String>,
-    flag_threads: Option<usize>,
-    flag_packfile: Option<bool>,
-    flag_skip: String,
+    plugins: Vec<String>,
+    skip: Vec<String>,
+    threads: Option<usize>,
+    packfile: bool,
 }
 
-pub fn execute(args: &[String]) {
-    let mut argv = vec!["pack".to_string(), "update".to_string()];
-    argv.extend_from_slice(args);
+impl UpdateArgs {
+    fn from_matches(m: &ArgMatches) -> UpdateArgs {
+        UpdateArgs {
+            plugins: m.values_of_lossy("package").unwrap_or_else(|| vec![]),
+            skip: m.values_of_lossy("skip").unwrap_or_else(|| vec![]),
+            threads: value_t!(m, "threads", usize).ok(),
+            packfile: m.is_present("packfile"),
+        }
+    }
+}
 
-    let args: UpdateArgs = Docopt::new(USAGE)
-        .and_then(|d| d.argv(argv)
-        .decode())
-        .unwrap_or_else(|e| e.exit());
+pub fn exec(matches: &ArgMatches) {
+    let args = UpdateArgs::from_matches(matches);
 
-    if args.flag_packfile.is_some() {
+    if args.packfile {
         if let Err(e) = update_packfile() {
             die!("Err: {}", e);
         }
-        return
+        return;
     }
 
-    let threads = args.flag_threads.unwrap_or_else(num_cpus::get);
+    let threads = args.threads.unwrap_or_else(num_cpus::get);
     if threads < 1 {
         die!("Threads should be greater than 0");
     }
-    let skip : Vec<String>= args.flag_skip.split(',')
-        .map(|x| String::from(x.trim()))
-        .filter(|x| !x.is_empty())
-        .collect();
 
-    if let Err(e) = update_plugins(&args.arg_plugin, threads, &skip) {
+    if let Err(e) = update_plugins(&args.plugins, threads, &args.skip) {
         die!("Err: {}", e);
     }
 }
@@ -78,7 +62,7 @@ fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result
         for pack in &packs {
             if skip.iter().any(|x| pack.name.contains(x)) {
                 println!("Skip {}", pack.name);
-                continue
+                continue;
             }
             manager.add(pack.clone());
         }
