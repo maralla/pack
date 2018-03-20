@@ -180,9 +180,12 @@ impl Package {
     }
 
     pub fn repo(&self) -> (&str, &str) {
-        let mut info = self.name.splitn(2, '/');
-        let user = info.next().unwrap_or("");
-        let repo = info.next().unwrap_or("");
+        let mut info : Vec<&str> = self.name.splitn(2, '/').collect();
+        info.reverse();
+
+        let repo = info.iter().next().unwrap_or(&"");
+        let user = info.iter().next().unwrap_or(&"");
+
         (user, repo)
     }
 
@@ -256,7 +259,9 @@ fn fetch_from_packfile<P: AsRef<Path>>(packfile: P) -> Result<Vec<Package>> {
 }
 
 pub fn save(packs: Vec<Package>) -> Result<()> {
-    let packs = packs.into_iter().map(|e| e.into_yaml()).collect::<Vec<Yaml>>();
+    let packs = packs.into_iter()
+        .map(|e| e.into_yaml())
+        .collect::<Vec<Yaml>>();
     let doc = Yaml::Array(packs);
     let mut out = String::new();
     {
@@ -317,4 +322,30 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn package_path_user_repo() {
+        let p = Package::new("user/reponame", "", false);
+        let exp = PACK_DIR.join("start").join("reponame");
+        assert_eq!(exp , p.path());
+    }
+
+    #[test]
+    fn package_path_nouser() {
+        let p = Package::new("reponame", "", false);
+        let exp = PACK_DIR.join("start").join("reponame");
+        assert_eq!(exp , p.path());
+    }
+
+    #[test]
+    fn package_path_repo_slash() {
+        let p = Package::new("user/reponame/with_slash", "", false);
+        let exp = PACK_DIR.join("start").join("reponame/with_slash");
+        assert_eq!(exp , p.path());
+    }
 }
