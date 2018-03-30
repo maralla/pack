@@ -18,8 +18,7 @@ fn fetch(repo: &Repository, name: &str) -> Result<()> {
     Ok(())
 }
 
-fn clone_real<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
-    let repo = git2::Repository::init(&target)?;
+fn sync_repo(repo: &Repository, name: &str) -> Result<()> {
     fetch(&repo, name)?;
     let reference = "HEAD";
     let oid = repo.refname_to_id(reference)?;
@@ -30,7 +29,8 @@ fn clone_real<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
 }
 
 pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
-    let result = clone_real(name, &target);
+    let repo = git2::Repository::init(&target)?;
+    let result = sync_repo(&repo, name);
     if result.is_err() {
         fs::remove_dir_all(&target)?;
     }
@@ -39,18 +39,18 @@ pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
 
 pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<()> {
     let repo = Repository::open(&path)?;
-    fetch(&repo, name)
+    sync_repo(&repo, name)
 }
+
 fn update_submodules(repo: &Repository) -> Result<()> {
 
-    fn add_subrepos(repo: &Repository, list: &mut Vec<Repository>)
-        -> Result<()> {
-            for mut subm in repo.submodules()? {
-                subm.update(true, None)?;
-                list.push(subm.open()?);
-            }
-            Ok(())
+    fn add_subrepos(repo: &Repository, list: &mut Vec<Repository>) -> Result<()> {
+        for mut subm in repo.submodules()? {
+            subm.update(true, None)?;
+            list.push(subm.open()?);
         }
+        Ok(())
+    }
 
     let mut repos = Vec::new();
     add_subrepos(repo, &mut repos)?;
