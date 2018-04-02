@@ -10,7 +10,8 @@ fn fetch(repo: &Repository, name: &str) -> Result<()> {
     let url = format!("{}/{}", LOCATION, name);
 
     let mut opts = git2::FetchOptions::new();
-    opts.download_tags(git2::AutotagOption::All);
+    opts.download_tags(git2::AutotagOption::All)
+        .update_fetchhead(true);
 
     let refspec = "refs/heads/*:refs/heads/*";
     let mut remote = repo.remote_anonymous(&url)?;
@@ -46,6 +47,9 @@ fn update_submodules(repo: &Repository) -> Result<()> {
 
     fn add_subrepos(repo: &Repository, list: &mut Vec<Repository>) -> Result<()> {
         for mut subm in repo.submodules()? {
+            if let Some("docs") = subm.name() {
+                continue;
+            }
             subm.update(true, None)?;
             list.push(subm.open()?);
         }
