@@ -1,41 +1,33 @@
 use std::fs;
 
-use {Result, Error};
+use {Error, Result};
 use package;
 use utils;
-use docopt::Docopt;
+use clap::ArgMatches;
 
-const USAGE: &str = "
-Move a plugin to a different category.
-
-Usage:
-    pack move <plugin> <category> [-o | --opt]
-    pack move -h | --help
-
-Options:
-    -o, --opt         Move this plugin as opt
-    -h, --help        Display this message
-";
-
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug)]
 struct MoveArgs {
-    arg_plugin: String,
-    arg_category: String,
-    flag_opt: bool,
+    plugin: String,
+    category: String,
+    opt: bool,
 }
 
-pub fn execute(args: &[String]) {
-    let mut argv = vec!["pack".to_string(), "move".to_string()];
-    argv.extend_from_slice(args);
-
-    let args: MoveArgs =
-        Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
-    if let Err(e) = move_plugin(
-        &args.arg_plugin,
-        &args.arg_category,
-        args.flag_opt) {
-            die!("{}", e);
+impl MoveArgs {
+    fn from_matches(m: &ArgMatches) -> MoveArgs {
+        MoveArgs {
+            plugin: value_t!(m, "package", String).unwrap_or_default(),
+            category: value_t!(m, "category", String).unwrap_or_default(),
+            opt: m.is_present("opt"),
         }
+    }
+}
+
+pub fn exec(matches: &ArgMatches) {
+    let args = MoveArgs::from_matches(matches);
+
+    if let Err(e) = move_plugin(&args.plugin, &args.category, args.opt) {
+        die!("{}", e);
+    }
 }
 
 fn move_plugin(plugin: &str, category: &str, opt: bool) -> Result<()> {

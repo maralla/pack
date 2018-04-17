@@ -2,34 +2,27 @@ use std::fs;
 
 use Result;
 use package::{self, Package};
-use docopt::Docopt;
+use clap::ArgMatches;
 
-const USAGE: &str = "
-Uninstall plugins.
-
-Usage:
-    pack uninstall <plugin>... [options]
-    pack uninstall -h | --help
-
-Options:
-    -a, --all               Also remove config files
-    -h, --help              Display this message
-";
-
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug)]
 struct UninstallArgs {
-    arg_plugin: Vec<String>,
-    flag_all: bool,
+    plugins: Vec<String>,
+    all: bool,
 }
 
-pub fn execute(args: &[String]) {
-    let mut argv = vec!["pack".to_string(), "uninstall".to_string()];
-    argv.extend_from_slice(args);
+impl UninstallArgs {
+    fn from_matches(m: &ArgMatches) -> UninstallArgs {
+        UninstallArgs {
+            plugins: m.values_of_lossy("package").unwrap_or_else(|| vec![]),
+            all: m.is_present("all"),
+        }
+    }
+}
 
-    let args: UninstallArgs =
-        Docopt::new(USAGE).and_then(|d| d.argv(argv).decode()).unwrap_or_else(|e| e.exit());
+pub fn exec(matches: &ArgMatches) {
+    let args = UninstallArgs::from_matches(matches);
 
-    if let Err(e) = uninstall_plugins(&args.arg_plugin, args.flag_all) {
+    if let Err(e) = uninstall_plugins(&args.plugins, args.all) {
         die!("{}", e);
     }
 }

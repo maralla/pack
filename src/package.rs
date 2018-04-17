@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use std::fmt;
 use std::process;
 
-use {Result, Error};
+use {Error, Result};
 
-use yaml_rust::{Yaml, YamlLoader, YamlEmitter};
+use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 use yaml_rust::yaml::Hash;
 
 const PACK_PLUGIN_FILE: &str = "_pack.vim";
@@ -60,7 +60,7 @@ impl Package {
         Package {
             name: name.to_string(),
             category: category.to_string(),
-            opt: opt,
+            opt,
             load_command: None,
             for_types: Vec::new(),
             build_command: None,
@@ -93,9 +93,15 @@ impl Package {
     }
 
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
-        let name = doc["name"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
+        let name = doc["name"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or(Error::Format)?;
         let opt = doc["opt"].as_bool().ok_or(Error::Format)?;
-        let category = doc["category"].as_str().map(|s| s.to_string()).ok_or(Error::Format)?;
+        let category = doc["category"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or(Error::Format)?;
         let cmd = doc["on"].as_str().map(|s| s.to_string());
         let build = doc["build"].as_str().map(|s| s.to_string());
         let is_local = doc["local"].as_bool().unwrap_or(false);
@@ -112,9 +118,9 @@ impl Package {
         };
 
         Ok(Package {
-            name: name,
-            category: category,
-            opt: opt,
+            name,
+            category,
+            opt,
             load_command: cmd,
             for_types: types,
             build_command: build,
@@ -135,7 +141,10 @@ impl Package {
             doc.insert(Yaml::from_str("build"), Yaml::from_str(c));
         }
         if !self.for_types.is_empty() {
-            let types = self.for_types.iter().map(|e| Yaml::from_str(e)).collect::<Vec<Yaml>>();
+            let types = self.for_types
+                .iter()
+                .map(|e| Yaml::from_str(e))
+                .collect::<Vec<Yaml>>();
             doc.insert(Yaml::from_str("for"), Yaml::Array(types));
         }
         Yaml::Hash(doc)
@@ -180,7 +189,7 @@ impl Package {
     }
 
     pub fn repo(&self) -> (&str, &str) {
-        let mut info : Vec<&str> = self.name.splitn(2, '/').collect();
+        let mut info: Vec<&str> = self.name.splitn(2, '/').collect();
         info.reverse();
 
         let repo = info.iter().next().unwrap_or(&"");
@@ -192,7 +201,8 @@ impl Package {
     pub fn try_build(&self) -> Result<()> {
         if let Some(ref c) = self.build_command {
             let path = self.path();
-            let p = process::Command::new("sh").arg("-c")
+            let p = process::Command::new("sh")
+                .arg("-c")
                 .arg(c)
                 .stdout(process::Stdio::piped())
                 .stderr(process::Stdio::piped())
@@ -223,13 +233,11 @@ impl fmt::Display for Package {
         } else {
             "".to_string()
         };
-        write!(f,
-               "{} => pack/{}/{}{}{}",
-               &self.name,
-               &self.category,
-               name,
-               on,
-               types)
+        write!(
+            f,
+            "{} => pack/{}/{}{}{}",
+            &self.name, &self.category, name, on, types
+        )
     }
 }
 
@@ -259,7 +267,8 @@ fn fetch_from_packfile<P: AsRef<Path>>(packfile: P) -> Result<Vec<Package>> {
 }
 
 pub fn save(packs: Vec<Package>) -> Result<()> {
-    let packs = packs.into_iter()
+    let packs = packs
+        .into_iter()
         .map(|e| e.into_yaml())
         .collect::<Vec<Yaml>>();
     let doc = Yaml::Array(packs);
@@ -294,10 +303,12 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
             f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
             written = true;
             let (_, repo) = p.repo();
-            let msg = format!("command! -nargs=* -range -bang {cmd} packadd {repo} | \
-                               call s:do_cmd('{cmd}', \"<bang>\", <line1>, <line2>, <q-args>)\n\n",
-                              cmd = c,
-                              repo = repo);
+            let msg = format!(
+                "command! -nargs=* -range -bang {cmd} packadd {repo} | \
+                 call s:do_cmd('{cmd}', \"<bang>\", <line1>, <line2>, <q-args>)\n\n",
+                cmd = c,
+                repo = repo
+            );
             f.write_all(msg.as_bytes())?;
         }
 
@@ -307,9 +318,11 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
                 written = true;
             }
             let (_, repo) = p.repo();
-            let msg = format!("autocmd FileType {} packadd {}\n\n",
-                              p.for_types.join(","),
-                              repo);
+            let msg = format!(
+                "autocmd FileType {} packadd {}\n\n",
+                p.for_types.join(","),
+                repo
+            );
             f.write_all(msg.as_bytes())?;
         }
 
@@ -332,20 +345,20 @@ mod tests {
     fn package_path_user_repo() {
         let p = Package::new("user/reponame", "", false);
         let exp = PACK_DIR.join("start").join("reponame");
-        assert_eq!(exp , p.path());
+        assert_eq!(exp, p.path());
     }
 
     #[test]
     fn package_path_nouser() {
         let p = Package::new("reponame", "", false);
         let exp = PACK_DIR.join("start").join("reponame");
-        assert_eq!(exp , p.path());
+        assert_eq!(exp, p.path());
     }
 
     #[test]
     fn package_path_repo_slash() {
         let p = Package::new("user/reponame/with_slash", "", false);
         let exp = PACK_DIR.join("start").join("reponame/with_slash");
-        assert_eq!(exp , p.path());
+        assert_eq!(exp, p.path());
     }
 }

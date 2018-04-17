@@ -89,11 +89,11 @@ impl StdError for Error {
             Error::NoPlugin => "Can not find such plugin",
             Error::SkipLocal => "Local plugin. Skipping",
             Error::Io(ref e) => e.description(),
-            Error::Build(ref s) |
-                Error::Git(ref s) |
-                Error::CopyDir(ref s) |
-                Error::PluginInstalled(ref s) |
-                Error::PackFile(ref s) => s,
+            Error::Build(ref s)
+            | Error::Git(ref s)
+            | Error::CopyDir(ref s)
+            | Error::PluginInstalled(ref s)
+            | Error::PackFile(ref s) => s,
         }
     }
 }

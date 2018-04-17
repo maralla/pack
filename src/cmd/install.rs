@@ -2,41 +2,37 @@ use std::path::Path;
 use std::os::unix::fs::symlink;
 
 use {Error, Result};
-use docopt::Docopt;
 use package::{self, Package};
 use git;
 use num_cpus;
 use task::TaskManager;
+use clap::ArgMatches;
 
-const USAGE: &str = "
-Install plugins.
-
-Usage:
-    pack install
-    pack install <plugin>... [options]
-    pack install -h | --help
-
-Options:
-    -o, --opt               Install this plugin as opt
-    -c, --category CAT      Install this plugin to category CAT [default: default]
-    -l, --local             Install a local plugin
-    --on CMD                Command for loading this plugin
-    --for TYPES             Load this plugin for TYPES
-    --build BUILD           Build command for this plugin
-    -j, --threads THREADS   Installing plugins concurrently
-    -h, --help              Display this message
-";
-
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug)]
 struct InstallArgs {
-    arg_plugin: Vec<String>,
-    flag_local: bool,
-    flag_on: Option<String>,
-    flag_for: Option<String>,
-    flag_threads: Option<usize>,
-    flag_opt: bool,
-    flag_category: String,
-    flag_build: Option<String>,
+    plugins: Vec<String>,
+    local: bool,
+    on: Option<String>,
+    for_: Option<String>,
+    threads: Option<usize>,
+    opt: bool,
+    category: String,
+    build: Option<String>,
+}
+
+impl InstallArgs {
+    fn from_matches(m: &ArgMatches) -> InstallArgs {
+        InstallArgs {
+            plugins: m.values_of_lossy("package").unwrap_or_else(|| vec![]),
+            local: m.is_present("local"),
+            on: value_t!(m, "on", String).ok(),
+            for_: value_t!(m, "for", String).ok(),
+            threads: value_t!(m, "threads", usize).ok(),
+            opt: m.is_present("opt"),
+            category: value_t!(m, "category", String).unwrap_or_default(),
+            build: value_t!(m, "build", String).ok(),
+        }
+    }
 }
 
 struct Plugins {
@@ -50,15 +46,10 @@ struct Plugins {
     local: bool,
 }
 
-pub fn execute(args: &[String]) {
-    let mut argv = vec!["pack".to_string(), "install".to_string()];
-    argv.extend_from_slice(args);
+pub fn exec(matches: &ArgMatches) {
+    let args = InstallArgs::from_matches(matches);
 
-    let args: InstallArgs = Docopt::new(USAGE)
-        .and_then(|d| d.argv(argv).decode())
-        .unwrap_or_else(|e| e.exit());
-
-    let threads = match args.flag_threads {
+    let threads = match args.threads {
         Some(t) => t,
         _ => num_cpus::get(),
     };
@@ -67,20 +58,19 @@ pub fn execute(args: &[String]) {
         die!("Threads should be greater than 0");
     }
 
-    let opt = args.flag_on.is_some() || args.flag_for.is_some() || args.flag_opt;
-    let types = args.flag_for.map(|e| {
-        e.split(',').map(|e| e.to_string()).collect::<Vec<String>>()
-    });
+    let opt = args.on.is_some() || args.for_.is_some() || args.opt;
+    let types = args.for_
+        .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
 
     let plugins = Plugins {
-        names: args.arg_plugin,
-        category: args.flag_category,
-        opt: opt,
-        on: args.flag_on,
-        types: types,
-        build: args.flag_build,
-        threads: threads,
-        local: args.flag_local,
+        names: args.plugins,
+        category: args.category,
+        opt,
+        on: args.on,
+        types,
+        build: args.build,
+        threads,
+        local: args.local,
     };
 
     if let Err(e) = install_plugins(&plugins) {

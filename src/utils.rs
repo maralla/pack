@@ -7,12 +7,13 @@ use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 
 use termion::color;
-use {Result, Error};
+use {Error, Result};
 use walkdir::WalkDir;
 use echo;
 
-const SPINNER_CHARS: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇',
-                                   '⠏'];
+const SPINNER_CHARS: [char; 10] = [
+    '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'
+];
 const DEFAULT_EDITOR: &str = "vi";
 
 macro_rules! die {
@@ -31,18 +32,17 @@ pub struct Spinner {
 impl Spinner {
     pub fn spin(x: u16, y: u16) -> Spinner {
         let (tx, rx) = channel();
-        let handle = thread::spawn(move || for &c in SPINNER_CHARS.iter().cycle() {
-                                       if rx.try_recv().is_ok() {
-                                           break;
-                                       }
+        let handle = thread::spawn(move || {
+            for &c in SPINNER_CHARS.iter().cycle() {
+                if rx.try_recv().is_ok() {
+                    break;
+                }
 
-                                       echo::character(x, y, c, color::Reset);
-                                       thread::sleep(time::Duration::from_millis(100));
-                                   });
-        Spinner {
-            tx: tx,
-            handle: handle,
-        }
+                echo::character(x, y, c, color::Reset);
+                thread::sleep(time::Duration::from_millis(100));
+            }
+        });
+        Spinner { tx, handle }
     }
 
     pub fn stop(self) {
@@ -72,11 +72,13 @@ fn get_editor() -> Option<String> {
     if term.map(|t| t == "dumb").unwrap_or(true) {
         None
     } else {
-        Some(env::var("PACK_EDITOR")
-                 .into_iter()
-                 .chain(env::var("EDITOR"))
-                 .next()
-                 .unwrap_or_else(|| String::from(DEFAULT_EDITOR)))
+        Some(
+            env::var("PACK_EDITOR")
+                .into_iter()
+                .chain(env::var("EDITOR"))
+                .next()
+                .unwrap_or_else(|| String::from(DEFAULT_EDITOR)),
+        )
     }
 }
 

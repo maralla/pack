@@ -1,30 +1,8 @@
 use Result;
-use package::{self};
-use docopt::Docopt;
+use package;
+use clap::ArgMatches;
 
-const USAGE: &str = "
-Generate the pack plugin file (_pack.vim) which combines all plugin configurations
-
-Usage:
-    pack generate [options]
-
-Options:
-    -h, --help              Display this message
-";
-
-#[derive(Debug, RustcDecodable)]
-struct GenerateArgs { }
-
-pub fn execute(args: &[String]) {
-    let mut argv = vec!["pack".to_string(), "generate".to_string()];
-    argv.extend_from_slice(args);
-
-    let _args: GenerateArgs =
-        Docopt::new(USAGE)
-            .and_then(|d| d.argv(argv).decode())
-            .unwrap_or_else(|e| e.exit());
-
-
+pub fn exec(_matches: &ArgMatches) {
     let _ = update_packfile();
 }
 
