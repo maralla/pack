@@ -78,7 +78,7 @@ pub fn build_cli() -> App<'static, 'static> {
                         .help("Installing packages concurrently")
                         .value_name("THREADS"),
                 )
-                .arg(Arg::with_name("package").required(true).multiple(true)),
+                .arg(Arg::with_name("package").multiple(true)),
         )
         .subcommand(
             SubCommand::with_name("uninstall")
