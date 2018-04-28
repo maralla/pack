@@ -30,29 +30,22 @@ pub fn exec(matches: &ArgMatches) {
 fn list_packages(args: ListArgs) -> Result<()> {
     let packs = package::fetch()?;
 
-    let ps = if let Some(c) = args.category {
-        packs
-            .iter()
-            .filter(|x| x.category == c)
-            .collect::<Vec<&Package>>()
-    } else {
-        packs.iter().collect::<Vec<&Package>>()
-    };
-
-    let res = if args.start {
-        ps.into_iter().filter(|x| !x.opt).collect::<Vec<&Package>>()
-    } else if args.opt {
-        ps.into_iter().filter(|x| x.opt).collect::<Vec<&Package>>()
-    } else {
-        ps.into_iter().collect::<Vec<&Package>>()
-    };
-
-    if res.is_empty() {
-        println!("No such packages installed.");
-    } else {
-        for p in &res {
-            println!("{}", p);
+    let filter = |x: &&Package| -> bool {
+        let mut status = true;
+        if let Some(ref c) = args.category {
+            status &= &x.category == c;
         }
+        if args.start {
+            status &= !x.opt;
+        }
+        if args.opt {
+            status &= x.opt;
+        }
+        status
+    };
+
+    for p in packs.iter().filter(filter) {
+        println!("{}", p);
     }
     Ok(())
 }
