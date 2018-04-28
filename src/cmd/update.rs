@@ -83,7 +83,17 @@ fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result
     Ok(())
 }
 
-fn update_plugin(pack: &Package) -> Result<()> {
+fn update_plugin(pack: &Package) -> (Result<()>, bool) {
+    let res = do_update(pack);
+    let status = match res {
+        Err(Error::SkipLocal) | Err(Error::Git(_)) => true,
+        Err(_) => false,
+        _ => true,
+    };
+    (res, status)
+}
+
+fn do_update(pack: &Package) -> Result<()> {
     let path = pack.path();
     if !path.is_dir() {
         Err(Error::PluginNotInstalled)
