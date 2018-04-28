@@ -142,7 +142,17 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
     package::save(packs)
 }
 
-fn install_plugin(pack: &Package) -> Result<()> {
+fn install_plugin(pack: &Package) -> (Result<()>, bool) {
+    let res = do_install(pack);
+    let status = match res {
+        Err(Error::PluginInstalled(_)) => true,
+        Err(_) => false,
+        _ => true,
+    };
+    (res, status)
+}
+
+fn do_install(pack: &Package) -> Result<()> {
     let path = pack.path();
     if path.is_dir() {
         Err(Error::plugin_installed(&path))
@@ -155,7 +165,6 @@ fn install_plugin(pack: &Package) -> Result<()> {
             Ok(())
         }
     } else {
-        git::clone(&pack.name, &path)?;
-        Ok(())
+        git::clone(&pack.name, &path)
     }
 }

@@ -44,7 +44,6 @@ pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<()> {
 }
 
 fn update_submodules(repo: &Repository) -> Result<()> {
-
     fn add_subrepos(repo: &Repository, list: &mut Vec<Repository>) -> Result<()> {
         for mut subm in repo.submodules()? {
             if let Some("docs") = subm.name() {

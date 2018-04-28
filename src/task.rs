@@ -30,7 +30,7 @@ impl TaskManager {
     /// returns true on success otherwise false
     fn update<F>(pack: &Package, line: u16, func: F) -> bool
     where
-        F: Fn(&Package) -> Result<()>,
+        F: Fn(&Package) -> (Result<()>, bool),
     {
         let msg = format!(" [{}]", &pack.name);
         let pos = msg.len() as u16;
@@ -46,16 +46,15 @@ impl TaskManager {
 
         let mut successful = true;
         let spinner = Spinner::spin(line, 3);
-        if let Err(e) = func(pack) {
+        if let (Err(e), status) = func(pack) {
             spinner.stop();
             print_err!(e);
-            successful = false;
+            successful = status;
         } else {
             if pack.build_command.is_some() {
                 echo::inline_message(line, 5 + pos, "building");
                 if let Err(e) = pack.try_build().map_err(|e| Error::build(format!("{}", e))) {
                     print_err!(e);
-                    successful = false;
                 }
             }
 
@@ -70,10 +69,10 @@ impl TaskManager {
 
     pub fn run<F>(self, func: F) -> Vec<String>
     where
-        F: Fn(&Package) -> Result<()> + Send + 'static + Copy,
+        F: Fn(&Package) -> (Result<()>, bool) + Send + 'static + Copy,
     {
         if self.packs.is_empty() {
-            die!("No plugins to syncing");
+            die!("No plugins to sync");
         }
 
         let y = match terminal_size() {
