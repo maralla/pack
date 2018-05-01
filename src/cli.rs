@@ -23,6 +23,12 @@ pub fn build_cli() -> App<'static, 'static> {
                         .help("List optional packages"),
                 )
                 .arg(
+                    Arg::with_name("detached")
+                        .long("detached")
+                        .short("d")
+                        .help("List detached(untracked) packages"),
+                )
+                .arg(
                     Arg::with_name("category")
                         .long("category")
                         .short("c")

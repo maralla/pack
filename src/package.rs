@@ -1,5 +1,6 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
+use std::rc::Rc;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::fmt;
@@ -335,6 +336,43 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn walk_packs() -> Result<Vec<(Rc<String>, Rc<String>, Rc<String>)>> {
+    fn walk<F>(dir: &Path, mut action: F) -> Result<()>
+    where
+        F: FnMut(&Path, Rc<String>) -> Result<()>,
+    {
+        if !dir.is_dir() {
+            return Ok(());
+        }
+        for entry in dir.read_dir()? {
+            if let Ok(e) = entry {
+                let sub = e.path();
+                let item = match sub.file_name().iter().flat_map(|s| s.to_str()).next() {
+                    None => continue,
+                    Some(i) => i.to_string(),
+                };
+                if sub.is_dir() && !item.starts_with(".") {
+                    action(&sub, Rc::new(item))?;
+                }
+            }
+        }
+        Ok(())
+    }
+    let mut ret = vec![];
+    walk(&PACK_DIR, |path, cate| {
+        walk(path, |subpath, option| {
+            if *option != "start" && *option != "opt" {
+                Ok(())
+            } else {
+                walk(subpath, |_, name| {
+                    Ok(ret.push((cate.clone(), option.clone(), name.clone())))
+                })
+            }
+        })
+    })?;
+    Ok(ret)
 }
 
 #[cfg(test)]
