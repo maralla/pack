@@ -1,6 +1,6 @@
-use Result;
-use package::{self, Package};
 use clap::ArgMatches;
+use package::{self, Package};
+use Result;
 
 #[derive(Debug)]
 struct ListArgs {
@@ -30,11 +30,12 @@ pub fn exec(matches: &ArgMatches) {
 }
 
 fn list_packages(args: ListArgs) -> Result<()> {
-    if args.detached {
-        list_detached()
+    let f = if args.detached {
+        list_detached
     } else {
-        list_installed(&args.category, args.start, args.opt)
-    }
+        list_installed
+    };
+    f(&args.category, args.start, args.opt)
 }
 
 fn list_installed(category: &Option<String>, start: bool, opt: bool) -> Result<()> {
@@ -60,19 +61,13 @@ fn list_installed(category: &Option<String>, start: bool, opt: bool) -> Result<(
     Ok(())
 }
 
-fn list_detached() -> Result<()> {
-    let available_packs = package::walk_packs()?;
+fn list_detached(category: &Option<String>, start: bool, opt: bool) -> Result<()> {
     let installed = package::fetch()?;
     let pack_names: Vec<&str> = installed.iter().map(|p| p.repo().1).collect();
 
-    let detached: Vec<String> = available_packs
-        .into_iter()
-        .filter(|&(_, _, ref name)| !pack_names.contains(&&*name.as_str()))
-        .map(|(cat, opt, name)| format!("{}/{}/{}", cat, opt, name))
-        .collect();
-
-    for p in detached {
-        println!("{}", p);
-    }
-    Ok(())
+    package::walk_packs(category, start, opt, |cate, option, name| {
+        if !pack_names.contains(&name) {
+            println!("{}/{}/{}", cate, option, name);
+        }
+    })
 }
