@@ -72,6 +72,12 @@ pub fn build_cli() -> App<'static, 'static> {
                         .value_name("TYPES"),
                 )
                 .arg(
+                    Arg::with_name("reference")
+                        .long("reference")
+                        .help("Git reference/branch name to use")
+                        .value_name("REFERENCE"),
+                )
+                .arg(
                     Arg::with_name("build")
                         .long("build")
                         .help("Build command for build package")
@@ -140,9 +146,9 @@ pub fn build_cli() -> App<'static, 'static> {
                         .help("Skip packages"),
                 )
                 .arg(
-                    Arg::with_name("packfile")
+                    Arg::with_name("packplugin")
                         .short("p")
-                        .long("packfile")
+                        .long("pack-plugin")
                         .help("Regenerate the '_pack' file (combine all package configurations)"),
                 )
                 .arg(
@@ -150,6 +156,12 @@ pub fn build_cli() -> App<'static, 'static> {
                         .short("j")
                         .long("threads")
                         .help("Updating packages concurrently"),
+                )
+                .arg(
+                    Arg::with_name("reference")
+                        .long("reference")
+                        .help("Git reference/branch name to use")
+                        .value_name("REFERENCE"),
                 )
                 .arg(
                     Arg::with_name("package")

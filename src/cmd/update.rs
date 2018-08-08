@@ -1,16 +1,17 @@
-use {Error, Result};
-use package::{self, Package};
-use num_cpus;
-use git;
-use task::TaskManager;
 use clap::ArgMatches;
+use git;
+use num_cpus;
+use package::{self, Package};
+use task::TaskManager;
+use {Error, Result};
 
 #[derive(Debug)]
 struct UpdateArgs {
     plugins: Vec<String>,
     skip: Vec<String>,
     threads: Option<usize>,
-    packfile: bool,
+    packplugin: bool,
+    reference: Option<String>,
 }
 
 impl UpdateArgs {
@@ -19,7 +20,8 @@ impl UpdateArgs {
             plugins: m.values_of_lossy("package").unwrap_or_else(|| vec![]),
             skip: m.values_of_lossy("skip").unwrap_or_else(|| vec![]),
             threads: value_t!(m, "threads", usize).ok(),
-            packfile: m.is_present("packfile"),
+            packplugin: m.is_present("packplugin"),
+            reference: value_t!(m, "reference", String).ok(),
         }
     }
 }
@@ -27,8 +29,8 @@ impl UpdateArgs {
 pub fn exec(matches: &ArgMatches) {
     let args = UpdateArgs::from_matches(matches);
 
-    if args.packfile {
-        if let Err(e) = update_packfile() {
+    if args.packplugin {
+        if let Err(e) = update_packplugin() {
             die!("Err: {}", e);
         }
         return;
@@ -39,12 +41,12 @@ pub fn exec(matches: &ArgMatches) {
         die!("Threads should be greater than 0");
     }
 
-    if let Err(e) = update_plugins(&args.plugins, threads, &args.skip) {
+    if let Err(e) = update_plugins(args.plugins, threads, args.skip, args.reference) {
         die!("Err: {}", e);
     }
 }
 
-fn update_packfile() -> Result<()> {
+fn update_packplugin() -> Result<()> {
     println!("Update _pack file for all plugins.");
     let mut packs = package::fetch()?;
 
@@ -54,36 +56,43 @@ fn update_packfile() -> Result<()> {
     Ok(())
 }
 
-fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result<()> {
+/// Update specified plugins.
+///
+/// The specified plugin can be updated to a different git commit or branch.
+/// If the updating failed pack will not try to fix or rollback or delete
+/// the plugin. If successed packfile will be updated.
+fn update_plugins(
+    plugins: Vec<String>,
+    threads: usize,
+    skip: Vec<String>,
+    reference: Option<String>,
+) -> Result<()> {
     let mut packs = package::fetch()?;
-
     let mut manager = TaskManager::new(threads);
-    if plugins.is_empty() {
-        for pack in &packs {
-            if skip.iter().any(|x| pack.name.contains(x)) {
-                println!("Skip {}", pack.name);
-                continue;
+    manager.set_commit(reference);
+
+    {
+        let pack_iter = packs
+            .iter()
+            .filter(|p| !skip.iter().any(|x| p.name.contains(x)));
+        if !plugins.is_empty() {
+            for pack in pack_iter.filter(|x| plugins.contains(&x.name)) {
+                manager.add(pack.clone());
             }
-            manager.add(pack.clone());
-        }
-    } else {
-        for pack in packs.iter().filter(|x| plugins.contains(&x.name)) {
-            manager.add(pack.clone());
+        } else {
+            for pack in pack_iter {
+                manager.add(pack.clone());
+            }
         }
     }
 
-    for fail in manager.run(update_plugin) {
-        packs.retain(|e| e.name != fail);
-    }
-
-    packs.sort_by(|a, b| a.name.cmp(&b.name));
-
-    package::update_pack_plugin(&packs)?;
-
+    let _failed = manager.run(update_plugin);
+    // for pack in packs {}
+    // package::save(packs);
     Ok(())
 }
 
-fn update_plugin(pack: &Package) -> (Result<()>, bool) {
+fn update_plugin(pack: &Package, _commit: &Option<String>) -> (Result<()>, bool) {
     let res = do_update(pack);
     let status = match res {
         Err(Error::SkipLocal) | Err(Error::Git(_)) => true,
@@ -100,6 +109,6 @@ fn do_update(pack: &Package) -> Result<()> {
     } else if pack.local {
         Err(Error::SkipLocal)
     } else {
-        git::update(&pack.name, &path)
+        git::update(&pack.name, &path, &pack.reference)
     }
 }

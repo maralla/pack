@@ -1,26 +1,32 @@
-use std::cmp;
-use Result;
-use Error;
-use package::Package;
 use chan;
 use echo;
+use package::Package;
+use std::cmp;
+use std::process;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use termion::{color, terminal_size};
 use utils::Spinner;
-use std::process;
-use std::thread;
-use std::sync::{Arc, Mutex};
+use Error;
+use Result;
 
 pub struct TaskManager {
     packs: Vec<Package>,
     thread_num: usize,
+    commit: Option<String>,
 }
 
 impl TaskManager {
     pub fn new(thread_num: usize) -> TaskManager {
         TaskManager {
             packs: Vec::new(),
+            commit: None,
             thread_num,
         }
+    }
+
+    pub fn set_commit(&mut self, commit: Option<String>) {
+        self.commit = commit
     }
 
     pub fn add(&mut self, pack: Package) {
@@ -28,9 +34,9 @@ impl TaskManager {
     }
 
     /// returns true on success otherwise false
-    fn update<F>(pack: &Package, line: u16, func: F) -> bool
+    fn update<F>(pack: &Package, line: u16, commit: &Option<String>, func: F) -> bool
     where
-        F: Fn(&Package) -> (Result<()>, bool),
+        F: Fn(&Package, &Option<String>) -> (Result<()>, bool),
     {
         let msg = format!(" [{}]", &pack.name);
         let pos = msg.len() as u16;
@@ -41,12 +47,12 @@ impl TaskManager {
                 let msg = format!("{}", $err);
                 echo::character(line, 3, '✗', color::Red);
                 echo::inline_message(line, 5 + pos, &msg);
-            }
+            };
         }
 
         let mut successful = true;
         let spinner = Spinner::spin(line, 3);
-        if let (Err(e), status) = func(pack) {
+        if let (Err(e), status) = func(pack, commit) {
             spinner.stop();
             print_err!(e);
             successful = status;
@@ -69,7 +75,7 @@ impl TaskManager {
 
     pub fn run<F>(self, func: F) -> Vec<String>
     where
-        F: Fn(&Package) -> (Result<()>, bool) + Send + 'static + Copy,
+        F: Fn(&Package, &Option<String>) -> (Result<()>, bool) + Send + 'static + Copy,
     {
         if self.packs.is_empty() {
             die!("No plugins to sync");
@@ -93,10 +99,11 @@ impl TaskManager {
             let rx = rx.clone();
             let jobs = jobs.clone();
             let failures = failures.clone();
+            let commit = self.commit.clone();
             thread::spawn(move || {
                 while let Some(Some((index, pack))) = rx.recv() {
                     jobs.add(1);
-                    if !Self::update(&pack, index, func) {
+                    if !Self::update(&pack, index, &commit, func) {
                         let mut f = failures.lock().unwrap();
                         f.push(pack.name);
                     }

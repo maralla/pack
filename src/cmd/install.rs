@@ -1,12 +1,12 @@
-use std::path::Path;
 use std::os::unix::fs::symlink;
+use std::path::Path;
 
-use {Error, Result};
-use package::{self, Package};
+use clap::ArgMatches;
 use git;
 use num_cpus;
+use package::{self, Package};
 use task::TaskManager;
-use clap::ArgMatches;
+use {Error, Result};
 
 #[derive(Debug)]
 struct InstallArgs {
@@ -18,6 +18,7 @@ struct InstallArgs {
     opt: bool,
     category: String,
     build: Option<String>,
+    reference: Option<String>,
 }
 
 impl InstallArgs {
@@ -31,6 +32,7 @@ impl InstallArgs {
             opt: m.is_present("opt"),
             category: value_t!(m, "category", String).unwrap_or_default(),
             build: value_t!(m, "build", String).ok(),
+            reference: value_t!(m, "reference", String).ok(),
         }
     }
 }
@@ -44,6 +46,7 @@ struct Plugins {
     build: Option<String>,
     threads: usize,
     local: bool,
+    reference: Option<String>,
 }
 
 pub fn exec(matches: &ArgMatches) {
@@ -71,6 +74,7 @@ pub fn exec(matches: &ArgMatches) {
         build: args.build,
         threads,
         local: args.local,
+        reference: args.reference,
     };
 
     if let Err(e) = install_plugins(&plugins) {
@@ -103,6 +107,9 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
                 }
                 if let Some(ref c) = plugins.build {
                     p.set_build_command(c);
+                }
+                if let Some(ref r) = plugins.reference {
+                    p.set_ref(r);
                 }
                 p
             });
@@ -142,7 +149,7 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
     package::save(packs)
 }
 
-fn install_plugin(pack: &Package) -> (Result<()>, bool) {
+fn install_plugin(pack: &Package, _commit: &Option<String>) -> (Result<()>, bool) {
     let res = do_install(pack);
     let status = match res {
         Err(Error::PluginInstalled(_)) => true,
@@ -165,6 +172,6 @@ fn do_install(pack: &Package) -> Result<()> {
             Ok(())
         }
     } else {
-        git::clone(&pack.name, &path)
+        git::clone(&pack.name, &path, &pack.reference)
     }
 }

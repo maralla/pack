@@ -52,6 +52,8 @@ pub struct Package {
     pub build_command: Option<String>,
     /// Local plugin
     pub local: bool,
+    /// Git commit reference
+    pub reference: String,
 }
 
 impl Package {
@@ -64,6 +66,7 @@ impl Package {
             for_types: Vec::new(),
             build_command: None,
             local: false,
+            reference: "HEAD".to_string(),
         }
     }
 
@@ -91,6 +94,10 @@ impl Package {
         self.build_command = Some(cmd.to_string())
     }
 
+    pub fn set_ref(&mut self, reference: &str) {
+        self.reference = reference.to_string()
+    }
+
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"]
             .as_str()
@@ -104,6 +111,7 @@ impl Package {
         let cmd = doc["on"].as_str().map(|s| s.to_string());
         let build = doc["build"].as_str().map(|s| s.to_string());
         let is_local = doc["local"].as_bool().unwrap_or(false);
+        let reference = doc["reference"].as_str().unwrap_or("HEAD").to_string();
 
         let types = match doc["for"].as_vec() {
             Some(f) => {
@@ -124,6 +132,7 @@ impl Package {
             for_types: types,
             build_command: build,
             local: is_local,
+            reference,
         })
     }
 
@@ -133,6 +142,7 @@ impl Package {
         doc.insert(Yaml::from_str("category"), Yaml::from_str(&self.category));
         doc.insert(Yaml::from_str("opt"), Yaml::Boolean(self.opt));
         doc.insert(Yaml::from_str("local"), Yaml::Boolean(self.local));
+        doc.insert(Yaml::from_str("reference"), Yaml::from_str(&self.reference));
         if let Some(ref c) = self.load_command {
             doc.insert(Yaml::from_str("on"), Yaml::from_str(c));
         }
@@ -336,9 +346,9 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
     Ok(())
 }
 
-fn read_dir<H>(dir: &Path, mut action: H) -> Result<()>
+fn read_dir<H>(dir: &Path, action: H) -> Result<()>
 where
-    H: FnMut(&Path, String) -> Result<()>,
+    H: Fn(&Path, String) -> Result<()>,
 {
     if !dir.is_dir() {
         return Ok(());

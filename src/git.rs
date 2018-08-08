@@ -1,8 +1,8 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
-use Result;
 use git2::{self, Repository};
+use Result;
 
 const LOCATION: &str = "https://github.com";
 
@@ -19,28 +19,27 @@ fn fetch(repo: &Repository, name: &str) -> Result<()> {
     Ok(())
 }
 
-fn sync_repo(repo: &Repository, name: &str) -> Result<()> {
+fn sync_repo(repo: &Repository, name: &str, commit: &str) -> Result<()> {
     fetch(&repo, name)?;
-    let reference = "HEAD";
-    let oid = repo.refname_to_id(reference)?;
+    let oid = repo.refname_to_id(commit)?;
     let object = repo.find_object(oid, None)?;
     repo.reset(&object, git2::ResetType::Hard, None)?;
     update_submodules(&repo)?;
     Ok(())
 }
 
-pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
+pub fn clone<P: AsRef<Path>>(name: &str, target: P, commit: &str) -> Result<()> {
     let repo = git2::Repository::init(&target)?;
-    let result = sync_repo(&repo, name);
+    let result = sync_repo(&repo, name, commit);
     if result.is_err() {
         fs::remove_dir_all(&target)?;
     }
     result
 }
 
-pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<()> {
+pub fn update<P: AsRef<Path>>(name: &str, path: P, commit: &str) -> Result<()> {
     let repo = Repository::open(&path)?;
-    sync_repo(&repo, name)
+    sync_repo(&repo, name, commit)
 }
 
 fn update_submodules(repo: &Repository) -> Result<()> {
