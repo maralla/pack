@@ -9,6 +9,7 @@ extern crate num_cpus;
 extern crate termion;
 extern crate walkdir;
 extern crate yaml_rust;
+extern crate dirs;
 
 use std::io;
 use clap::ArgMatches;

@@ -114,7 +114,7 @@ impl TaskManager {
                 println!();
             }
 
-            for (j, pack) in chunk.into_iter().enumerate() {
+            for (j, pack) in chunk.iter().enumerate() {
                 let o = offset - j;
                 tx.send(Some((o as u16, pack.clone())));
             }
@@ -129,13 +129,27 @@ impl TaskManager {
         }
         jobs.wait();
 
-        process::Command::new("vim")
+        match process::Command::new("vim")
             .arg("--not-a-term")
             .arg("-c")
             .arg("silent! helptags ALL")
             .stdout(process::Stdio::null())
-            .spawn()
-            .expect("Something went wrong!");
+            .spawn() {
+                Ok(_) => (),
+                Err(e) => {
+                    if let std::io::ErrorKind::NotFound = e.kind() {
+                        process::Command::new("nvim")
+                            .arg("--headless")
+                            .arg("-c")
+                            .arg("silent! helptags ALL")
+                            .stdout(process::Stdio::null())
+                            .spawn()
+                            .expect("Error opening nvim");
+                    } else {
+                        panic!("Somthing happened when calling vim!")
+                    }
+                },
+            }
 
         let failures = failures.lock().unwrap();
         failures.clone()
