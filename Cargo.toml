@@ -11,6 +11,7 @@ termion = "1.0"
 num_cpus = "1.0"
 chan = "0.1.19"
 clap = "2.*"
+dirs = "1.0"
 
 [dependencies.git2]
 version = "0.7"

@@ -30,7 +30,7 @@ lazy_static! {
     static ref BASE_DIR: PathBuf = env::var("VIM_CONFIG_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
-            let home = env::home_dir().expect("No home directory found");
+            let home = dirs::home_dir().expect("No home directory found");
             home.join(".vim")
         });
     static ref PACK_DIR: PathBuf = (*BASE_DIR).join("pack");
@@ -350,7 +350,7 @@ where
                 None => continue,
                 Some(i) => i.to_string(),
             };
-            if sub.is_dir() && !item.starts_with(".") {
+            if sub.is_dir() && !item.starts_with('.') {
                 action(&sub, item)?;
             }
         }
