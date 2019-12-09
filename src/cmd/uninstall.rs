@@ -1,8 +1,8 @@
-use std::fs;
+use crate::package::{self, Package};
+use crate::Result;
 
-use Result;
-use package::{self, Package};
 use clap::ArgMatches;
+use std::fs;
 
 #[derive(Debug)]
 struct UninstallArgs {

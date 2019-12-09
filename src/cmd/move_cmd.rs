@@ -1,9 +1,9 @@
-use std::fs;
+use crate::package;
+use crate::utils;
+use crate::{Error, Result};
 
-use {Error, Result};
-use package;
-use utils;
-use clap::ArgMatches;
+use clap::{value_t, ArgMatches};
+use std::fs;
 
 #[derive(Debug)]
 struct MoveArgs {

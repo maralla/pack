@@ -2,16 +2,22 @@
 name = "pack"
 version = "0.2.3"
 authors = ["maralla <maralla.ai@gmail.com>"]
+edition = "2018"
 
 [dependencies]
-lazy_static = "0.1.*"
+lazy_static = "1.4.0"
 yaml-rust = "0.3.5"
 walkdir = "1"
 termion = "1.0"
 num_cpus = "1.0"
-chan = "0.1.19"
-clap = "2.*"
+clap = "~2.27.0"
 dirs = "1.0"
+signal-hook = "0.1.12"
+libc = "0.2.66"
+crossbeam-channel = "0.4"
+crossbeam-utils = "0.7"
+simple-logging = "2.0.2"
+log = "0.4.8"
 
 [dependencies.git2]
 version = "0.7"

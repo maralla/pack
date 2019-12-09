@@ -1,8 +1,8 @@
-use std::path::Path;
-use std::fs;
+use crate::Result;
 
-use Result;
 use git2::{self, Repository};
+use std::fs;
+use std::path::Path;
 
 const LOCATION: &str = "https://github.com";
 

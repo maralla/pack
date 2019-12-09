@@ -1,10 +1,10 @@
+use crate::package;
+use crate::utils;
+use crate::{Error, Result};
+
+use clap::{value_t, ArgMatches};
 use std::fs;
 use std::io::ErrorKind;
-
-use {Error, Result};
-use clap::ArgMatches;
-use utils;
-use package;
 
 #[derive(Debug)]
 struct ConfigArgs {

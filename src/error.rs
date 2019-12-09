@@ -1,9 +1,9 @@
-use std::result::Result as StdResult;
 use std::error::Error as StdError;
-use std::io;
 use std::fmt;
+use std::io;
 use std::path::Path;
 use std::path::StripPrefixError;
+use std::result::Result as StdResult;
 
 use git2;
 use walkdir;

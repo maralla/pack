@@ -1,19 +1,17 @@
+use crate::echo;
+use crate::{Error, Result};
+
 use std::env;
 use std::fs;
+use std::path::Path;
+use std::process;
+use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time;
-use std::process;
-use std::path::Path;
-use std::sync::mpsc::{channel, Sender};
-
 use termion::color;
-use {Error, Result};
 use walkdir::WalkDir;
-use echo;
 
-const SPINNER_CHARS: [char; 10] = [
-    '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'
-];
+const SPINNER_CHARS: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const DEFAULT_EDITOR: &str = "vi";
 
 macro_rules! die {

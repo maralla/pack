@@ -1,32 +1,21 @@
-#[macro_use]
-extern crate lazy_static;
-
-extern crate chan;
-#[macro_use]
-extern crate clap;
-extern crate git2;
-extern crate num_cpus;
-extern crate termion;
-extern crate walkdir;
-extern crate yaml_rust;
-extern crate dirs;
-
-use std::io;
 use clap::ArgMatches;
+use std::io;
 
 #[macro_use]
 mod utils;
 
 mod cli;
 mod cmd;
-mod error;
-mod package;
-mod git;
-mod task;
 mod echo;
+mod error;
+mod git;
+mod package;
+mod task;
 
 pub use error::{Error, Result};
 fn main() {
+    simple_logging::log_to_file("test.log", log::LevelFilter::Info);
+
     let app_m = cli::build_cli().get_matches();
 
     match app_m.subcommand() {

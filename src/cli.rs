@@ -3,8 +3,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 pub fn build_cli() -> App<'static, 'static> {
     App::new("pack")
         .about("Package manager for vim")
-        .author(crate_authors!())
-        .version(crate_version!())
+        .author(clap::crate_authors!())
+        .version(clap::crate_version!())
         .subcommand(
             SubCommand::with_name("list")
                 .about("List installed packages")

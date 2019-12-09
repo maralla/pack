@@ -1,6 +1,6 @@
-use std::sync::Mutex;
+use lazy_static::lazy_static;
 use std::io::{self, Write};
-
+use std::sync::Mutex;
 use termion::{clear, color, cursor};
 
 pub fn async_print(line: u16, right: u16, msg: &str) {

@@ -1,3 +1,5 @@
+use crate::{Error, Result};
+
 use std::env;
 use std::fmt;
 use std::fs::{self, File};
@@ -5,8 +7,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use {Error, Result};
-
+use lazy_static::lazy_static;
 use yaml_rust::yaml::Hash;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
@@ -140,7 +141,8 @@ impl Package {
             doc.insert(Yaml::from_str("build"), Yaml::from_str(c));
         }
         if !self.for_types.is_empty() {
-            let types = self.for_types
+            let types = self
+                .for_types
                 .iter()
                 .map(|e| Yaml::from_str(e))
                 .collect::<Vec<Yaml>>();

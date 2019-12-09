@@ -1,12 +1,12 @@
-use std::path::Path;
-use std::os::unix::fs::symlink;
+use crate::git;
+use crate::package::{self, Package};
+use crate::task::{TaskManager, TaskType};
+use crate::{Error, Result};
 
-use {Error, Result};
-use package::{self, Package};
-use git;
+use clap::{value_t, ArgMatches};
 use num_cpus;
-use task::TaskManager;
-use clap::ArgMatches;
+use std::os::unix::fs::symlink;
+use std::path::Path;
 
 #[derive(Debug)]
 struct InstallArgs {
@@ -59,7 +59,8 @@ pub fn exec(matches: &ArgMatches) {
     }
 
     let opt = args.on.is_some() || args.for_.is_some() || args.opt;
-    let types = args.for_
+    let types = args
+        .for_
         .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
 
     let plugins = Plugins {
@@ -81,7 +82,7 @@ pub fn exec(matches: &ArgMatches) {
 fn install_plugins(plugins: &Plugins) -> Result<()> {
     let mut packs = package::fetch()?;
     {
-        let mut manager = TaskManager::new(plugins.threads);
+        let mut manager = TaskManager::new(TaskType::Install, plugins.threads);
 
         if plugins.names.is_empty() {
             for pack in &packs {
