@@ -1,32 +1,26 @@
-#[macro_use]
-extern crate lazy_static;
-
-extern crate chan;
-#[macro_use]
-extern crate clap;
-extern crate git2;
-extern crate num_cpus;
-extern crate termion;
-extern crate walkdir;
-extern crate yaml_rust;
-extern crate dirs;
-
-use std::io;
 use clap::ArgMatches;
+use std::env;
+use std::io;
 
 #[macro_use]
 mod utils;
 
 mod cli;
 mod cmd;
-mod error;
-mod package;
-mod git;
-mod task;
 mod echo;
+mod error;
+mod git;
+mod package;
+mod task;
 
 pub use error::{Error, Result};
+
 fn main() {
+    let _ = env::var("PACK_LOG_FILE").and_then(|x| {
+        simple_logging::log_to_file(x, log::LevelFilter::Info).expect("fail to init logging");
+        Ok(())
+    });
+
     let app_m = cli::build_cli().get_matches();
 
     match app_m.subcommand() {

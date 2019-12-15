@@ -1,21 +1,30 @@
-use std::sync::Mutex;
+use lazy_static::lazy_static;
 use std::io::{self, Write};
-
+use std::sync::Mutex;
 use termion::{clear, color, cursor};
 
-pub fn async_print(line: u16, right: u16, msg: &str) {
-    lazy_static! {
-        static ref MUTEX: Mutex<i32> = Mutex::new(0);
-    }
+lazy_static! {
+    static ref MUTEX: Mutex<u16> = Mutex::new(0);
+}
 
-    let _ = MUTEX.lock().unwrap();
+pub fn line() -> u16 {
+    let mut v = MUTEX.lock().unwrap();
+    let current = *v;
+    *v = *v + 1;
+    println!();
+    current
+}
+
+pub fn async_print(line: u16, right: u16, msg: &str) {
+    let current = MUTEX.lock().unwrap();
+    let offset = *current - line;
     print!("{}", cursor::Hide);
     print!(
         "{}{}{}{}",
-        cursor::Up(line),
+        cursor::Up(offset),
         msg,
         cursor::Left(right),
-        cursor::Down(line)
+        cursor::Down(offset)
     );
     print!("{}", cursor::Show);
     let stdout = io::stdout();
@@ -47,4 +56,16 @@ pub fn inline_message(line: u16, offset: u16, msg: &str) {
 
 pub fn message(line: u16, offset: u16, msg: &str) {
     async_print(line, offset + msg.len() as u16, msg);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_line() {
+        line();
+        line();
+        assert_eq!(line(), 2);
+    }
 }

@@ -1,9 +1,8 @@
-use {Error, Result};
-use package::{self, Package};
-use num_cpus;
-use git;
-use task::TaskManager;
-use clap::ArgMatches;
+use crate::git;
+use crate::package::{self, Package};
+use crate::task::{TaskManager, TaskType};
+use crate::{Error, Result};
+use clap::{value_t, ArgMatches};
 
 #[derive(Debug)]
 struct UpdateArgs {
@@ -57,7 +56,7 @@ fn update_packfile() -> Result<()> {
 fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result<()> {
     let mut packs = package::fetch()?;
 
-    let mut manager = TaskManager::new(threads);
+    let mut manager = TaskManager::new(TaskType::Update, threads);
     if plugins.is_empty() {
         for pack in &packs {
             if skip.iter().any(|x| pack.name.contains(x)) {

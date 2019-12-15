@@ -1,5 +1,5 @@
-use Result;
-use package;
+use crate::package;
+use crate::Result;
 use clap::ArgMatches;
 
 pub fn exec(_matches: &ArgMatches) {

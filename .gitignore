@@ -3,3 +3,5 @@
 /target/
 
 .*.sw[opn]
+
+test.log
