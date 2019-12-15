@@ -12,7 +12,6 @@ env:
 
 jobs:
   build:
-    needs: test
     strategy:
       matrix:
         os:
