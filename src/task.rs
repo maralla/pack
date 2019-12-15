@@ -7,7 +7,6 @@ use crate::Result;
 use crossbeam_channel::{bounded, select, Receiver};
 use crossbeam_utils::sync::WaitGroup;
 use signal_hook::iterator::Signals;
-use std::cmp;
 use std::fs;
 use std::io;
 use std::process;
@@ -107,7 +106,7 @@ impl TaskManager {
         let threads = self.thread_num;
 
         let wg = WaitGroup::new();
-        let (tx, rx) = bounded::<Option<(u16, Package)>>(threads);
+        let (tx, rx) = bounded::<Option<Package>>(threads);
 
         let failures = Arc::new(Mutex::new(vec![]));
         let pending = Arc::new(Mutex::new(vec![]));
@@ -119,7 +118,7 @@ impl TaskManager {
             let wg = wg.clone();
             let quit_notifier = quit_notifier.clone();
             thread::spawn(move || {
-                while let Ok(Some((index, pack))) = rx.recv() {
+                while let Ok(Some(pack)) = rx.recv() {
                     log::info!("pack {}", &pack.name);
                     let _wg = wg.clone();
                     {
@@ -133,6 +132,7 @@ impl TaskManager {
 
                     let (wtx, wrx) = bounded(0);
                     thread::spawn(move || {
+                        let index = echo::line();
                         if !Self::update(&pack, index, func) {
                             let mut f = failures.lock().unwrap();
                             f.push(pack.name);
@@ -157,27 +157,19 @@ impl TaskManager {
         if !self.packs.is_empty() {
             println!();
         }
-        for chunk in self.packs.chunks(cmp::min(y as usize - 2, self.thread_num)) {
-            let offset = chunk.len();
-            // for _ in 0..offset {
-            //     println!();
-            // }
 
-            for (j, pack) in chunk.iter().enumerate() {
-                println!();
-                let o = offset - j;
-                let _ = tx.send(Some((o as u16, pack.clone())));
-            }
-            // wg.clone().wait();
-        }
-        if !self.packs.is_empty() {
-            println!();
+        for pack in self.packs.iter() {
+            let _ = tx.send(Some(pack.clone()));
         }
 
         for _ in 0..threads {
             let _ = tx.send(None);
         }
         wg.wait();
+
+        if !self.packs.is_empty() {
+            println!();
+        }
 
         log::info!("quit");
 
