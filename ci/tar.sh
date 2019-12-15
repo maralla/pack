@@ -2,7 +2,8 @@
 
 set -ex
 
-VERSION=$1
+REF=$1
+VERSION=${REF##refs/tags/}
 TARGET=$2
 
 td=$(mktemp -d)
