@@ -9,7 +9,7 @@ TARGET=$2
 td=$(mktemp -d)
 mkdir dist
 out_dir=$(pwd)/dist
-name="${PROJECT_NAME}-${VERSION}-${TARGET}"
+name="pack-${VERSION}-${TARGET}"
 
 cp target/release/pack "$td/"
 cp README.md "$td/"
