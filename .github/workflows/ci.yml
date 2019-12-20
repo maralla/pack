@@ -44,7 +44,7 @@ jobs:
         run: ./ci/tar.sh ${{ github.ref }} ${{ matrix.os.target }}
       - uses: actions/upload-artifact@v1
         with:
-          name: ${{ matrix.os.name }}
+          name: ${{ steps.dist.outputs.name }}
           path: dist
 
   release:
@@ -52,10 +52,39 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - id: version
+        run: |
+          echo ::set-output name=version::${TAG##refs/tags/}
+        env:
+          TAG: ${{ github.ref }}
       - uses: actions/download-artifact@v1
         with:
-          name: ubuntu-latest
+          name: pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
       - uses: actions/download-artifact@v1
         with:
-          name: macos-latest
-      - run: ls
+          name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+      - uses: actions/create-release@v1
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+      - uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          assert_path: ./pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
+          assert_name: pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
+          assert_content_type: application/zip
+      - uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          assert_path: ./pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          assert_name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          assert_content_type: application/zip
