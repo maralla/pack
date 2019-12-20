@@ -1,0 +1,61 @@
+on: [push]
+
+name: ci
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -v
+  build:
+    if: contains(github.ref, 'tags/v')
+    needs: test
+    strategy:
+      matrix:
+        os:
+          - name: macos-latest
+            target: x86_64-apple-darwin
+          - name: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os.name }}
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: archive-binary
+        id: dist
+        run: ./ci/tar.sh ${{ github.ref }} ${{ matrix.os.target }}
+      - uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.os.name }}
+          path: dist
+
+  release:
+    if: contains(github.ref, 'tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v1
+        with:
+          name: ubuntu-latest
+      - uses: actions/download-artifact@v1
+        with:
+          name: macos-latest
+      - run: ls

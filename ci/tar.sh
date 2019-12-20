@@ -7,7 +7,8 @@ VERSION=${REF##refs/tags/}
 TARGET=$2
 
 td=$(mktemp -d)
-out_dir=$(pwd)
+mkdir dist
+out_dir=$(pwd)/dist
 name="${PROJECT_NAME}-${VERSION}-${TARGET}"
 
 cp target/release/pack "$td/"
@@ -17,3 +18,5 @@ pushd $td
 tar czf "$out_dir/$name.tar.gz" *
 popd
 rm -r $td
+
+echo ::set-output name=name::$name.tar.gz
