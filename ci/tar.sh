@@ -7,8 +7,7 @@ VERSION=${REF##refs/tags/}
 TARGET=$2
 
 td=$(mktemp -d)
-mkdir dist
-out_dir=$(pwd)/dist
+out_dir=$(pwd)
 name="pack-${VERSION}-${TARGET}"
 
 cp target/release/pack "$td/"

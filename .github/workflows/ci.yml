@@ -39,13 +39,13 @@ jobs:
         with:
           command: build
           args: --release
-      - name: archive-binary
+      - name: Archive asset
         id: dist
         run: ./ci/tar.sh ${{ github.ref }} ${{ matrix.os.target }}
       - uses: actions/upload-artifact@v1
         with:
-          name: ${{ steps.dist.outputs.name }}
-          path: dist
+          name: ${{ matrix.os.name }}
+          path: ${{ steps.dist.outputs.name }}
 
   release:
     if: contains(github.ref, 'tags/v')
@@ -59,10 +59,10 @@ jobs:
           TAG: ${{ github.ref }}
       - uses: actions/download-artifact@v1
         with:
-          name: pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
+          name: macos-latest
       - uses: actions/download-artifact@v1
         with:
-          name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          name: ubuntu-latest
       - uses: actions/create-release@v1
         id: release
         env:
@@ -72,19 +72,21 @@ jobs:
           release_name: ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
-      - uses: actions/upload-release-asset@v1.0.1
+      - name: Upload macos asset
+        uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.release.outputs.upload_url }}
-          assert_path: ./pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
-          assert_name: pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
-          assert_content_type: application/zip
-      - uses: actions/upload-release-asset@v1.0.1
+          asset_path: ./macos-latest/pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
+          asset_name: pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload linux asset
+        uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.release.outputs.upload_url }}
-          assert_path: ./pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
-          assert_name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
-          assert_content_type: application/zip
+          asset_path: ./ubuntu-latest/pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          asset_name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          asset_content_type: application/gzip
