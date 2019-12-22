@@ -12,6 +12,8 @@ name="pack-${VERSION}-${TARGET}"
 
 cp target/release/pack "$td/"
 cp README.md "$td/"
+cp LICENSE "$td/"
+cp -r contrib "$td/"
 
 pushd $td
 tar czf "$out_dir/$name.tar.gz" *
