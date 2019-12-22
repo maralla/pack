@@ -1,6 +1,6 @@
 [package]
 name = "pack"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["maralla <maralla.ai@gmail.com>"]
 edition = "2018"
 
