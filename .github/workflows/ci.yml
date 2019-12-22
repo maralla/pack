@@ -52,6 +52,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@master
+        with:
+          repository: maralla/homebrew-pack
+          token: ${{ secrets.ACTIONS_PAT }}
       - id: version
         run: |
           echo ::set-output name=version::${TAG##refs/tags/}
@@ -90,3 +94,7 @@ jobs:
           asset_path: ./ubuntu-latest/pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
           asset_name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
           asset_content_type: application/gzip
+      - name: Update brew formula
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACTIONS_PAT }}
+        run: ./update.sh ${{ steps.version.outputs.version }}
