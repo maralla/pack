@@ -10,6 +10,18 @@ Install
 
 Currently only macOS and Linux are supported and neovim is not supported.
 
+#### Use homebrew
+
+```bash
+# Add the pack tap
+$ brew tap maralla/pack
+
+# Install pack using brew.
+$ brew install pack
+```
+
+#### Without homebrew
+
 To install the already compiled binary, go to the [releases](https://github.com/maralla/pack/releases)
 page and download the proper compressed binary package:
 
