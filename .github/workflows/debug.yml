@@ -6,4 +6,4 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - run: echo state=${{ github.event.state }} title=${{ github.event.title }} base_branch=${{ github.event.base.ref }}
+      - run: echo name=${{ github.event_name }} action=${{ github.event.action }} state=${{ github.event.pull_request.state }} title=${{ github.event.pull_request.title }} base_branch=${{ github.event.pull_request.base.ref }}
