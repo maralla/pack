@@ -11,6 +11,10 @@ function __fish_using_command
     return 1
 end
 
+function __fish_pack_packages
+    pack list | string split ' =>' --field 1
+end
+
 complete -c pack -n "__fish_using_command pack" -s h -l help -d 'Prints help information'
 complete -c pack -n "__fish_using_command pack" -s V -l version -d 'Prints version information'
 complete -c pack -n "__fish_using_command pack" -f -a "list" -d 'List installed packages'
@@ -38,18 +42,22 @@ complete -c pack -n "__fish_using_command pack install" -s h -l help -d 'Prints 
 complete -c pack -n "__fish_using_command pack install" -s V -l version -d 'Prints version information'
 complete -c pack -n "__fish_using_command pack uninstall" -s a -l all -d 'remove all package related configuration as well'
 complete -c pack -n "__fish_using_command pack uninstall" -s h -l help -d 'Prints help information'
+complete -c pack -n "__fish_using_command pack uninstall" -f -a "(__fish_pack_packages)"
 complete -c pack -n "__fish_using_command pack uninstall" -s V -l version -d 'Prints version information'
 complete -c pack -n "__fish_using_command pack config" -s d -l delete -d 'Delete package configuration file'
 complete -c pack -n "__fish_using_command pack config" -s h -l help -d 'Prints help information'
 complete -c pack -n "__fish_using_command pack config" -s V -l version -d 'Prints version information'
+complete -c pack -n "__fish_using_command pack config" -f -a "(__fish_pack_packages)"
 complete -c pack -n "__fish_using_command pack move" -s o -l opt -d 'Make package optional'
 complete -c pack -n "__fish_using_command pack move" -s h -l help -d 'Prints help information'
 complete -c pack -n "__fish_using_command pack move" -s V -l version -d 'Prints version information'
+complete -c pack -n "__fish_using_command pack move" -f -a "(__fish_pack_packages)"
 complete -c pack -n "__fish_using_command pack update" -s s -l skip -d 'Skip packages'
 complete -c pack -n "__fish_using_command pack update" -s p -l packfile -d 'Regenerate the \'_pack\' file (combine all package configurations)'
 complete -c pack -n "__fish_using_command pack update" -s j -l threads -d 'Updating packages concurrently'
 complete -c pack -n "__fish_using_command pack update" -s h -l help -d 'Prints help information'
 complete -c pack -n "__fish_using_command pack update" -s V -l version -d 'Prints version information'
+complete -c pack -n "__fish_using_command pack update" -f -a "(__fish_pack_packages)"
 complete -c pack -n "__fish_using_command pack generate" -s h -l help -d 'Prints help information'
 complete -c pack -n "__fish_using_command pack generate" -s V -l version -d 'Prints version information'
 complete -c pack -n "__fish_using_command pack completions" -s h -l help -d 'Prints help information'
