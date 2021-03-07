@@ -42,7 +42,10 @@ lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct Package {
+    /// username/repo string for remote plugins
+    /// and directory path string for local plugins
     pub name: String,
+    /// Install package under pack/<category>/
     pub category: String,
     pub opt: bool,
     /// Load this package on this command
@@ -76,14 +79,17 @@ impl Package {
         self.category = cat.into();
     }
 
+    /// Set package to be installed under pack/*/opt
     pub fn set_opt(&mut self, opt: bool) {
         self.opt = opt;
     }
 
+    /// Set command to load the package on
     pub fn set_load_command(&mut self, cmd: &str) {
         self.load_command = Some(cmd.to_string())
     }
 
+    /// Set filetype(s) to load the package for
     pub fn set_types(&mut self, types: Vec<String>) {
         self.for_types = types
     }
@@ -92,6 +98,7 @@ impl Package {
         self.build_command = Some(cmd.to_string())
     }
 
+    /// Parse a Package from a single list item in `PACK_FILE`
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"]
             .as_str()
@@ -128,6 +135,7 @@ impl Package {
         })
     }
 
+    /// Convert Package to a list item to be added to `PACK_FILE`
     pub fn into_yaml(self) -> Yaml {
         let mut doc = Hash::new();
         doc.insert(Yaml::from_str("name"), Yaml::from_str(&self.name));
@@ -151,6 +159,7 @@ impl Package {
         Yaml::Hash(doc)
     }
 
+    /// Returns the name of the package from directory path for local packages
     #[inline]
     fn basename(&self) -> &str {
         Path::new(&self.name)
@@ -161,6 +170,7 @@ impl Package {
             .unwrap_or("")
     }
 
+    /// Returns absolute path to directory where plugin can be installed
     pub fn path(&self) -> PathBuf {
         let repo = if self.local {
             self.basename()
@@ -175,6 +185,7 @@ impl Package {
         }
     }
 
+    /// Returns vim config file path (under `PACK_CONFIG_DIR`) for this package
     pub fn config_path(&self) -> PathBuf {
         let name = if self.local {
             self.basename().to_string()
@@ -189,6 +200,7 @@ impl Package {
         PACK_CONFIG_DIR.join(fname)
     }
 
+    /// Returns (username, repo) for remote packages
     pub fn repo(&self) -> (&str, &str) {
         let mut info: Vec<&str> = self.name.splitn(2, '/').collect();
         info.reverse();
@@ -199,6 +211,12 @@ impl Package {
         (user, repo)
     }
 
+    /// Run the build command using `sh -c ...`
+    ///
+    /// # Errors
+    ///
+    /// If the build process returns a non zero exit status, an `Error::Build`
+    /// variant will be returned along with stderr.
     pub fn try_build(&self) -> Result<()> {
         if let Some(ref c) = self.build_command {
             let path = self.path();
@@ -251,6 +269,7 @@ pub fn fetch() -> Result<Vec<Package>> {
     }
 }
 
+/// Returns a list of packages parsed from packfile
 fn fetch_from_packfile<P: AsRef<Path>>(packfile: P) -> Result<Vec<Package>> {
     let mut data = String::new();
     File::open(packfile.as_ref())?.read_to_string(&mut data)?;
@@ -267,6 +286,8 @@ fn fetch_from_packfile<P: AsRef<Path>>(packfile: P) -> Result<Vec<Package>> {
     Ok(ret)
 }
 
+/// Write out the yaml packfile under `PACK_CONFIG_DIR` creating it
+/// if necessary.
 pub fn save(packs: Vec<Package>) -> Result<()> {
     let packs = packs
         .into_iter()
@@ -287,6 +308,7 @@ pub fn save(packs: Vec<Package>) -> Result<()> {
     Ok(())
 }
 
+/// Update `_pack.vim` file in plugin directory.
 pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
     if !PACK_PLUGIN_DIR.is_dir() {
         fs::create_dir_all(&*PACK_PLUGIN_DIR)?;
