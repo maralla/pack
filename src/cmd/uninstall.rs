@@ -27,6 +27,8 @@ pub fn exec(matches: &ArgMatches) {
     }
 }
 
+/// Uninstall multiple plugins based on plugin names. `all` argument
+/// purges related plugin specific config file.
 fn uninstall_plugins(plugins: &[String], all: bool) -> Result<()> {
     let mut packs = package::fetch()?;
 
@@ -34,13 +36,14 @@ fn uninstall_plugins(plugins: &[String], all: bool) -> Result<()> {
         uninstall_plugin(pack, all)?;
     }
 
-    packs.retain(|x| !plugins.contains(&x.name));
+    packs.retain(|x| !plugins.contains(&x.name)); // keep only installed plugins
     packs.sort_by(|a, b| a.name.cmp(&b.name));
     package::update_pack_plugin(&packs)?;
     package::save(packs)?;
     Ok(())
 }
 
+/// Uninstall a specific plugin. `all` purges related config file.
 fn uninstall_plugin(plugin: &Package, all: bool) -> Result<()> {
     let config_file = plugin.config_path();
     let plugin_path = plugin.path();
