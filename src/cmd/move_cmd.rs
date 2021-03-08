@@ -35,12 +35,12 @@ fn move_plugin(plugin: &str, category: &str, opt: bool) -> Result<()> {
     let changed = {
         let pack = match packs.iter_mut().find(|p| p.name == plugin) {
             Some(p) => p,
-            None => return Err(Error::PluginNotInstalled),
+            None => return Err(Error::plugin_not_installed(plugin)),
         };
 
         let origin_path = pack.path();
         if !origin_path.is_dir() {
-            return Err(Error::PluginNotInstalled);
+            return Err(Error::plugin_not_installed(plugin));
         }
 
         let path = package::Package::new(plugin, category, opt).path();

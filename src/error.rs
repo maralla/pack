@@ -18,7 +18,7 @@ pub enum Error {
     Git(String),
     Editor,
     Build(String),
-    PluginNotInstalled,
+    PluginNotInstalled(String),
     NoPlugin,
     SkipLocal,
     PluginInstalled(String),
@@ -39,6 +39,10 @@ impl Error {
 
     pub fn plugin_installed<T: AsRef<Path>>(s: T) -> Error {
         Error::PluginInstalled(format!("Plugin already installed under {:?}", s.as_ref()))
+    }
+
+    pub fn plugin_not_installed(s: &str) -> Error {
+        Error::PluginNotInstalled(format!("{} not installed", s))
     }
 }
 
@@ -85,7 +89,6 @@ impl StdError for Error {
             Error::SaveYaml => "Fail to save packfile",
             Error::LoadYaml => "Fail to load packfile",
             Error::Editor => "Can not open editor",
-            Error::PluginNotInstalled => "Plugin not installed",
             Error::NoPlugin => "Can not find such plugin",
             Error::SkipLocal => "Local plugin. Skipping",
             Error::Io(ref e) => e.description(),
@@ -93,6 +96,7 @@ impl StdError for Error {
             | Error::Git(ref s)
             | Error::CopyDir(ref s)
             | Error::PluginInstalled(ref s)
+            | Error::PluginNotInstalled(ref s)
             | Error::PackFile(ref s) => s,
         }
     }

@@ -95,7 +95,7 @@ fn update_plugin(pack: &Package) -> (Result<()>, bool) {
 fn do_update(pack: &Package) -> Result<()> {
     let path = pack.path();
     if !path.is_dir() {
-        Err(Error::PluginNotInstalled)
+        Err(Error::plugin_not_installed(&pack.name))
     } else if pack.local {
         Err(Error::SkipLocal)
     } else {
