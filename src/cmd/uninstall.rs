@@ -1,5 +1,5 @@
 use crate::package::{self, Package};
-use crate::Result;
+use crate::{Error, Result};
 
 use clap::ArgMatches;
 use std::fs;
@@ -29,8 +29,19 @@ pub fn exec(matches: &ArgMatches) {
 
 fn uninstall_plugins(plugins: &[String], all: bool) -> Result<()> {
     let mut packs = package::fetch()?;
+    let mut packs_iter = packs.iter();
 
-    for pack in packs.iter().filter(|p| plugins.contains(&p.name)) {
+    let to_uninstall = plugins
+        .iter()
+        .map(
+            |plugin| match packs_iter.find(|pack| &pack.name == plugin) {
+                Some(p) => Ok(p),
+                None => Err(Error::plugin_not_installed(plugin)),
+            },
+        )
+        .collect::<Result<Vec<&Package>>>()?;
+
+    for pack in to_uninstall {
         uninstall_plugin(pack, all)?;
     }
 
