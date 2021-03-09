@@ -49,6 +49,9 @@ fn uninstall_plugins(plugins: &[String], all: bool) -> Result<()> {
     packs.sort_by(|a, b| a.name.cmp(&b.name));
     package::update_pack_plugin(&packs)?;
     package::save(packs)?;
+
+    println!();
+    println!("Uninstalled {}", plugins.join(", "));
     Ok(())
 }
 
