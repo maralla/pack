@@ -6,8 +6,12 @@ use std::path::Path;
 
 const LOCATION: &str = "https://github.com";
 
+fn github_url(name: &str) -> String {
+    format!("{}/{}", LOCATION, name)
+}
+
 fn fetch(repo: &Repository, name: &str) -> Result<()> {
-    let url = format!("{}/{}", LOCATION, name);
+    let url = github_url(&name);
 
     let mut opts = git2::FetchOptions::new();
     opts.download_tags(git2::AutotagOption::All)
@@ -30,12 +34,12 @@ fn sync_repo(repo: &Repository, name: &str) -> Result<()> {
 }
 
 pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
-    let repo = git2::Repository::init(&target)?;
-    let result = sync_repo(&repo, name);
+    let url = github_url(name);
+    let result = git2::Repository::clone_recurse(&url, &target);
     if result.is_err() {
         fs::remove_dir_all(&target)?;
     }
-    result
+    Ok(())
 }
 
 pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<()> {
