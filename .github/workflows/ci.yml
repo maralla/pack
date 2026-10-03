@@ -27,13 +27,13 @@ jobs:
           - name: macos-latest
             target: x86_64-apple-darwin
             use-cross: false
-          - os: macos-latest
+          - name: macos-latest
             target: aarch64-apple-darwin
             use-cross: false
           - name: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             use-cross: false
-          - os: ubuntu-latest
+          - name: ubuntu-latest
             target: aarch64-unknown-linux-musl
             use-cross: true
     runs-on: ${{ matrix.os.name }}
@@ -42,15 +42,15 @@ jobs:
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.os.target }}
 
       - name: Run Build
         run: |
           if [ "${{ matrix.use-cross }}" = "true" ]; then
             cargo install cross --git https://github.com
-            cross build --release --target ${{ matrix.target }}
+            cross build --release --target ${{ matrix.os.target }}
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --release --target ${{ matrix.os.target }}
           fi
 
       - name: Archive asset
