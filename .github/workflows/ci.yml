@@ -46,7 +46,7 @@ jobs:
 
       - name: Run Build
         run: |
-          if [ "${{ matrix.use-cross }}" = "true" ]; then
+          if [ "${{ matrix.os.use-cross }}" = "true" ]; then
             cargo install cross --git https://github.com
             cross build --release --target ${{ matrix.os.target }}
           else
