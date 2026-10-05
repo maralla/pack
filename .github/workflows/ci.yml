@@ -9,15 +9,10 @@ jobs:
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: -v
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test -v
+
   build:
     if: contains(github.ref, 'tags/v')
     needs: test
@@ -38,7 +33,8 @@ jobs:
             use-cross: true
     runs-on: ${{ matrix.os.name }}
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
+
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -47,7 +43,7 @@ jobs:
       - name: Run Build
         run: |
           if [ "${{ matrix.os.use-cross }}" = "true" ]; then
-            cargo install cross --git https://github.com
+            cargo install cross
             cross build --release --target ${{ matrix.os.target }}
           else
             cargo build --release --target ${{ matrix.os.target }}
@@ -57,76 +53,53 @@ jobs:
         id: dist
         run: ./ci/tar.sh ${{ github.ref }} ${{ matrix.os.target }}
 
+      # Matrix uploading to distinct targets prevents overlap collisions in v4
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os.name }}
+          name: pack-binaries-${{ matrix.os.target }}
           path: ${{ steps.dist.outputs.name }}
 
   release:
     if: contains(github.ref, 'tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating release tags natively
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
         with:
           repository: maralla/homebrew-pack
           token: ${{ secrets.ACTIONS_PAT }}
+
       - id: version
         run: |
-          echo ::set-output name=version::${TAG##refs/tags/}
+          echo "version=${TAG##refs/tags/}" >> $GITHUB_OUTPUT
         env:
           TAG: ${{ github.ref }}
-      - uses: actions/download-artifact@v1
+
+      # Downloads all matrix archives using v4 wildcards into a unified staging dir
+      - uses: actions/download-artifact@v4
         with:
-          name: macos-latest
-      - uses: actions/download-artifact@v1
-        with:
-          name: ubuntu-latest
-      - uses: actions/create-release@v1
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pattern: pack-binaries-*
+          path: ./artifacts
+          merge-multiple: true
+
+      # Modern standard replacement for creating releases and attaching assets at once
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          release_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
-      - name: Upload macos-x86 asset
-        uses: actions/upload-release-asset@v1.0.1
+          files: |
+            ./artifacts/pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
+            ./artifacts/pack-${{ steps.version.outputs.version }}-aarch64-apple-darwin.tar.gz
+            ./artifacts/pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+            ./artifacts/pack-${{ steps.version.outputs.version }}-aarch64-unknown-linux-musl.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./macos-latest/pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
-          asset_name: pack-${{ steps.version.outputs.version }}-x86_64-apple-darwin.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload macos-aarch64 asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./macos-latest/pack-${{ steps.version.outputs.version }}-aarch64-apple-darwin.tar.gz
-          asset_name: pack-${{ steps.version.outputs.version }}-aarch64-apple-darwin.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload linux-x86 asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./ubuntu-latest/pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
-          asset_name: pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload linux-aarch64 asset
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./ubuntu-latest/pack-${{ steps.version.outputs.version }}-aarch64-unknown-linux-musl.tar.gz
-          asset_name: pack-${{ steps.version.outputs.version }}-aarch64-unknown-linux-musl.tar.gz
-          asset_content_type: application/gzip
+
       - name: Update brew formula
         env:
           GITHUB_TOKEN: ${{ secrets.ACTIONS_PAT }}
