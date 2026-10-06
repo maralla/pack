@@ -51,6 +51,8 @@ jobs:
 
       - name: Archive asset
         id: dist
+        env:
+          GITHUB_OUTPUT: ${{ github.output }}
         run: ./ci/tar.sh ${{ github.ref }} ${{ matrix.os.target }}
 
       # Matrix uploading to distinct targets prevents overlap collisions in v4
