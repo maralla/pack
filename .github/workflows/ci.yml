@@ -14,7 +14,7 @@ jobs:
       - run: cargo test -v
 
   build:
-    if: contains(github.ref, 'tags/v')
+    if: contains(github.ref, 'tags/v') || github.ref_name == 'debug-ci'
     needs: test
     strategy:
       matrix:
