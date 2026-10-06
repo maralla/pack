@@ -3,8 +3,17 @@
 set -ex
 
 REF=$1
-VERSION=${REF##refs/tags/}
 TARGET=$2
+
+if [[ "$REF" == refs/tags/* ]]; then
+    VERSION="${REF##refs/tags/}"
+elif [[ "$REF" == refs/heads/* ]]; then
+    VERSION="${REF##refs/heads/}"
+else
+    VERSION="unknown"
+fi
+
+VERSION="${VERSION//\//-}"
 
 td=$(mktemp -d)
 out_dir=$(pwd)
