@@ -10,6 +10,23 @@ Install
 
 Currently only macOS and Linux are supported and neovim is not supported.
 
+#### One line
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/maralla/pack/main/install.sh | sh
+```
+
+On systems without curl (e.g. a stock Alpine/musl install):
+
+```bash
+wget -qO- https://raw.githubusercontent.com/maralla/pack/main/install.sh | sh
+```
+
+The script picks the release build for this system (musl build on a musl
+userland, gnu build on glibc), installs the runtime libraries pack resolves
+against on musl systems (that is the point of not vendoring OpenSSL), and
+installs the binary to /usr/local/bin (or ~/.local/bin without root).
+
 #### Use homebrew
 
 ```bash
