@@ -1,7 +1,7 @@
 #!/bin/sh
 # pack installer — downloads the latest release binary from GitHub.
 #
-#   curl -fsSL https://raw.githubusercontent.com/maralla/pack/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/maralla/pack/master/install.sh | sh
 #
 # What this does:
 #   1. picks the release target for this system (musl build on a musl

@@ -13,13 +13,13 @@ Currently only macOS and Linux are supported and neovim is not supported.
 #### One line
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maralla/pack/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/maralla/pack/master/install.sh | sh
 ```
 
 On systems without curl (e.g. a stock Alpine/musl install):
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/maralla/pack/main/install.sh | sh
+wget -qO- https://raw.githubusercontent.com/maralla/pack/master/install.sh | sh
 ```
 
 The script picks the release build for this system (musl build on a musl
