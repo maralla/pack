@@ -21,38 +21,83 @@ jobs:
         os:
           - name: macos-latest
             target: x86_64-apple-darwin
-            use-cross: false
           - name: macos-latest
             target: aarch64-apple-darwin
-            use-cross: false
           - name: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            use-cross: false
-          - name: ubuntu-latest
+          - name: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
-            use-cross: true
+          - name: ubuntu-latest
+            target: x86_64-unknown-linux-musl
     runs-on: ${{ matrix.os.name }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Rust Toolchain
+        if: matrix.os.target != 'x86_64-unknown-linux-musl' && matrix.os.target != 'aarch64-unknown-linux-musl'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.os.target }}
 
+      # /dev/kvm exists on the hosted runner but is root:kvm 0660, and the
+      # runner user is not in the kvm group (EACCES, os error 13). Open the
+      # device to the job — the canonical udev-rule form used by the Android
+      # emulator setups (hosted runners allow passwordless sudo).
+      - name: Enable KVM
+        if: matrix.os.target == 'x86_64-unknown-linux-musl'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run Build
         run: |
-          if [ "${{ matrix.os.use-cross }}" = "true" ]; then
-            cargo install cross
-            cross build --release --target ${{ matrix.os.target }}
+          if [ "${{ matrix.os.target }}" = "x86_64-unknown-linux-musl" ]; then
+            base=https://github.com/maralla/sandal/releases/download/v0.1.0-beta.1
+            curl -fsSL -o sandal.tar.gz \
+              "$base/sandal-v0.1.0-beta.1-linux-x86_64.tar.gz"
+            echo "dcd3e5434ca01738ea8ff9a286d28729b8f0f5bcea5dd0b6ab432a40b9f94147  sandal.tar.gz" | sha256sum -c -
+            tar xzf sandal.tar.gz
+            # Single line: sandal encodes each argv element as one ARG= line
+            # and the guest init consumes only ARG=-prefixed lines, so a
+            # multi-line script would be truncated to its first line (the
+            # dangling && then kills the whole script before anything runs).
+            ./sandal -m 8192 --share "$PWD:/src" -- sh -c 'apk add --no-cache rust cargo openssl-dev pkgconf zlib-dev && cd /src && cargo build --release --no-default-features'
+            mkdir -p "target/${{ matrix.os.target }}/release"
+            cp target/release/pack "target/${{ matrix.os.target }}/release/pack"
+          elif [ "${{ matrix.os.target }}" = "aarch64-unknown-linux-musl" ]; then
+            # Same-arch musl by transformation (the x86_64-unknown-linux-musl
+            # leg's approach, transplanted): this ARM64 runner natively
+            # executes an Alpine aarch64 rootfs — no cross toolchain, no
+            # emulation, no KVM. apk provides the aarch64-musl toolchain
+            # and system OpenSSL, so build --no-default-features against
+            # apk's openssl-dev exactly like the x86_64 leg.
+            root=alpine-root
+            curl -fsSL -o minirootfs.tar.gz \
+              https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.0-aarch64.tar.gz
+            echo "4b8cd66a6688b2a87276c39843ed89c3a06d9534fc6a5823c586aff2696c1f2a  minirootfs.tar.gz" | sha256sum -c -
+            mkdir "$root"
+            sudo tar xzf minirootfs.tar.gz -C "$root"
+            # The minirootfs ships dev/ and proc/ but no src/ bind target.
+            sudo mkdir -p "$root/dev" "$root/proc" "$root/src"
+            sudo mount --bind /dev "$root/dev"
+            sudo mount --bind /proc "$root/proc"
+            sudo mount --bind "$PWD" "$root/src"
+            sudo cp /etc/resolv.conf "$root/etc/resolv.conf"
+            sudo chroot "$root" /bin/sh -c 'apk add --no-cache rust cargo openssl-dev pkgconf zlib-dev && cd /src && cargo build --release --no-default-features'
+            sudo umount "$root/dev" "$root/proc" "$root/src"
+            # The chroot build ran as real root (unlike the x86_64 leg, whose
+            # virtiofs share maps guest root to the runner user), so target/
+            # came out root-owned and the staging/tar steps cannot write it.
+            sudo chown -R "$(id -u):$(id -g)" target
+            mkdir -p "target/${{ matrix.os.target }}/release"
+            cp target/release/pack "target/${{ matrix.os.target }}/release/pack"
           else
             cargo build --release --target ${{ matrix.os.target }}
           fi
 
       - name: Archive asset
         id: dist
-        env:
-          GITHUB_OUTPUT: ${{ github.output }}
         run: ./ci/tar.sh ${{ github.ref }} ${{ matrix.os.target }}
 
       # Matrix uploading to distinct targets prevents overlap collisions in v4
@@ -104,6 +149,7 @@ jobs:
             ./artifacts/pack-${{ steps.version.outputs.version }}-aarch64-apple-darwin.tar.gz
             ./artifacts/pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
             ./artifacts/pack-${{ steps.version.outputs.version }}-aarch64-unknown-linux-musl.tar.gz
+            ./artifacts/pack-${{ steps.version.outputs.version }}-x86_64-unknown-linux-musl.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

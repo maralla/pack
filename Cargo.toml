@@ -22,4 +22,8 @@ log = "0.4.8"
 [dependencies.git2]
 version = "0.13"
 default-features = false
-features = ["ssh", "https", "vendored-openssl"]
+features = ["ssh", "https"]
+
+[features]
+default = ["vendored-openssl"]
+vendored-openssl = ["git2/vendored-openssl"]
