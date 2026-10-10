@@ -7,7 +7,7 @@ use std::result::Result as StdResult;
 
 use git2;
 use walkdir;
-use yaml_rust::{EmitError, ScanError};
+use yaml_rust2::{EmitError, ScanError};
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -50,19 +50,19 @@ impl From<io::Error> for Error {
 
 impl From<git2::Error> for Error {
     fn from(err: git2::Error) -> Error {
-        Error::Git(err.description().to_string())
+        Error::Git(err.to_string())
     }
 }
 
 impl From<walkdir::Error> for Error {
     fn from(err: walkdir::Error) -> Error {
-        Error::copy_dir(err.description())
+        Error::copy_dir(&err.to_string())
     }
 }
 
 impl From<StripPrefixError> for Error {
     fn from(err: StripPrefixError) -> Error {
-        Error::copy_dir(err.description())
+        Error::copy_dir(&err.to_string())
     }
 }
 
@@ -78,28 +78,24 @@ impl From<ScanError> for Error {
     }
 }
 
-impl StdError for Error {
-    fn description(&self) -> &str {
+impl StdError for Error {}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Format => "Invalid format",
-            Error::SaveYaml => "Fail to save packfile",
-            Error::LoadYaml => "Fail to load packfile",
-            Error::Editor => "Can not open editor",
-            Error::PluginNotInstalled => "Plugin not installed",
-            Error::NoPlugin => "Can not find such plugin",
-            Error::SkipLocal => "Local plugin. Skipping",
-            Error::Io(ref e) => e.description(),
+            Error::Format => write!(f, "Invalid format"),
+            Error::SaveYaml => write!(f, "Fail to save packfile"),
+            Error::LoadYaml => write!(f, "Fail to load packfile"),
+            Error::Editor => write!(f, "Can not open editor"),
+            Error::PluginNotInstalled => write!(f, "Plugin not installed"),
+            Error::NoPlugin => write!(f, "Can not find such plugin"),
+            Error::SkipLocal => write!(f, "Local plugin. Skipping"),
+            Error::Io(ref e) => write!(f, "{}", e),
             Error::Build(ref s)
             | Error::Git(ref s)
             | Error::CopyDir(ref s)
             | Error::PluginInstalled(ref s)
-            | Error::PackFile(ref s) => s,
+            | Error::PackFile(ref s) => write!(f, "{}", s),
         }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
     }
 }

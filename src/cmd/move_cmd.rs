@@ -2,7 +2,7 @@ use crate::package;
 use crate::utils;
 use crate::{Error, Result};
 
-use clap::{value_t, ArgMatches};
+use clap::ArgMatches;
 use std::fs;
 
 #[derive(Debug)]
@@ -15,9 +15,9 @@ struct MoveArgs {
 impl MoveArgs {
     fn from_matches(m: &ArgMatches) -> MoveArgs {
         MoveArgs {
-            plugin: value_t!(m, "package", String).unwrap_or_default(),
-            category: value_t!(m, "category", String).unwrap_or_default(),
-            opt: m.is_present("opt"),
+            plugin: m.get_one::<String>("package").cloned().unwrap_or_default(),
+            category: m.get_one::<String>("category").cloned().unwrap_or_default(),
+            opt: m.get_flag("opt"),
         }
     }
 }

@@ -1,175 +1,181 @@
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{Arg, ArgAction, Command};
 
-pub fn build_cli() -> App<'static, 'static> {
-    App::new("pack")
+pub fn build_cli() -> Command {
+    Command::new("pack")
         .about("Package manager for vim")
-        .author(clap::crate_authors!())
-        .version(clap::crate_version!())
+        .version(env!("CARGO_PKG_VERSION"))
         .subcommand(
-            SubCommand::with_name("list")
+            Command::new("list")
                 .about("List installed packages")
                 .arg(
-                    Arg::with_name("start")
+                    Arg::new("start")
                         .long("start")
-                        .short("s")
+                        .short('s')
                         .conflicts_with("opt")
+                        .action(ArgAction::SetTrue)
                         .help("List start packages"),
                 )
                 .arg(
-                    Arg::with_name("opt")
+                    Arg::new("opt")
                         .long("opt")
-                        .short("o")
+                        .short('o')
                         .conflicts_with("start")
+                        .action(ArgAction::SetTrue)
                         .help("List optional packages"),
                 )
                 .arg(
-                    Arg::with_name("detached")
+                    Arg::new("detached")
                         .long("detached")
-                        .short("d")
+                        .short('d')
+                        .action(ArgAction::SetTrue)
                         .help("List detached(untracked) packages"),
                 )
                 .arg(
-                    Arg::with_name("category")
+                    Arg::new("category")
                         .long("category")
-                        .short("c")
+                        .short('c')
                         .help("List packages under this category")
                         .value_name("CATEGORY"),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("install")
+            Command::new("install")
                 .about("Install new packages/plugins")
                 .arg(
-                    Arg::with_name("opt")
-                        .short("o")
+                    Arg::new("opt")
+                        .short('o')
                         .long("opt")
+                        .action(ArgAction::SetTrue)
                         .help("Install plugins as opt(ional)"),
                 )
                 .arg(
-                    Arg::with_name("category")
+                    Arg::new("category")
                         .long("category")
-                        .short("c")
+                        .short('c')
                         .help("Install package under provided category")
                         .default_value("default")
                         .value_name("CATEGORY"),
                 )
                 .arg(
-                    Arg::with_name("local")
-                        .short("l")
+                    Arg::new("local")
+                        .short('l')
                         .long("local")
+                        .action(ArgAction::SetTrue)
                         .help("Install local plugins"),
                 )
                 .arg(
-                    Arg::with_name("on")
+                    Arg::new("on")
                         .long("on")
                         .help("Command for loading the plugins")
                         .value_name("LOAD_CMD"),
                 )
                 .arg(
-                    Arg::with_name("for")
+                    Arg::new("for")
                         .long("for")
                         .help("Load this plugins for specific types")
                         .value_name("TYPES"),
                 )
                 .arg(
-                    Arg::with_name("build")
+                    Arg::new("build")
                         .long("build")
                         .help("Build command for build package")
                         .value_name("BUILD_CMD"),
                 )
                 .arg(
-                    Arg::with_name("threads")
-                        .short("j")
+                    Arg::new("threads")
+                        .short('j')
                         .long("threads")
                         .help("Installing packages concurrently")
-                        .value_name("THREADS"),
+                        .value_name("THREADS")
+                        .value_parser(clap::value_parser!(usize)),
                 )
-                .arg(Arg::with_name("package").multiple(true)),
+                .arg(Arg::new("package").action(ArgAction::Append).num_args(1..)),
         )
         .subcommand(
-            SubCommand::with_name("uninstall")
+            Command::new("uninstall")
                 .about("Uninstall packages/plugins")
                 .arg(
-                    Arg::with_name("all")
-                        .short("a")
+                    Arg::new("all")
+                        .short('a')
                         .long("all")
+                        .action(ArgAction::SetTrue)
                         .help("remove all package related configuration as well"),
                 )
-                .arg(Arg::with_name("package").required(true).multiple(true)),
+                .arg(Arg::new("package").required(true).action(ArgAction::Append).num_args(1..)),
         )
         .subcommand(
-            SubCommand::with_name("config")
+            Command::new("config")
                 .about("Configure/edit the package specific configuration")
                 .arg(
-                    Arg::with_name("delete")
-                        .short("d")
+                    Arg::new("delete")
+                        .short('d')
                         .long("delete")
+                        .action(ArgAction::SetTrue)
                         .help("Delete package configuration file"),
                 )
-                .arg(Arg::with_name("package").required(true)),
+                .arg(Arg::new("package").required(true)),
         )
         .subcommand(
-            SubCommand::with_name("move")
+            Command::new("move")
                 .about("Move a package to a different category or make it optional.")
                 .arg(
-                    Arg::with_name("opt")
+                    Arg::new("opt")
                         .conflicts_with("category")
                         .long("opt")
-                        .short("o")
+                        .short('o')
+                        .action(ArgAction::SetTrue)
                         .help("Make package optional"),
                 )
+                .arg(Arg::new("package").help("Package to move").required(true))
                 .arg(
-                    Arg::with_name("package")
-                        .help("Package to move")
-                        .required(true),
-                )
-                .arg(
-                    Arg::with_name("category")
+                    Arg::new("category")
                         .conflicts_with("opt")
                         .help("Category to move the package to"),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("update")
+            Command::new("update")
                 .about("Update packages")
                 .arg(
-                    Arg::with_name("skip")
-                        .short("s")
+                    Arg::new("skip")
+                        .short('s')
                         .long("skip")
-                        .multiple(true)
+                        .action(ArgAction::Append)
                         .help("Skip packages"),
                 )
                 .arg(
-                    Arg::with_name("packfile")
-                        .short("p")
+                    Arg::new("packfile")
+                        .short('p')
                         .long("packfile")
+                        .action(ArgAction::SetTrue)
                         .help("Regenerate the '_pack' file (combine all package configurations)"),
                 )
                 .arg(
-                    Arg::with_name("threads")
-                        .short("j")
+                    Arg::new("threads")
+                        .short('j')
                         .long("threads")
-                        .help("Updating packages concurrently"),
+                        .help("Updating packages concurrently")
+                        .value_parser(clap::value_parser!(usize)),
                 )
                 .arg(
-                    Arg::with_name("package")
+                    Arg::new("package")
                         .help("Packages to update, default all")
-                        .multiple(true),
+                        .action(ArgAction::Append)
+                        .num_args(1..),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("generate")
+            Command::new("generate")
                 .about("Generate the pack package file")
-                .help("Generate _pack.vim file which combines all package configurations"),
         )
         .subcommand(
-            SubCommand::with_name("completions")
+            Command::new("completions")
                 .about("Generates completion scripts for your shell")
-                .setting(AppSettings::Hidden)
+                .hide(true)
                 .arg(
-                    Arg::with_name("SHELL")
+                    Arg::new("SHELL")
                         .required(true)
-                        .possible_values(&["bash", "fish", "zsh"])
+                        .value_parser(["bash", "fish", "zsh"])
                         .help("The shell to generate the script for"),
                 ),
         )

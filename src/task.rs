@@ -5,7 +5,7 @@ use crate::Error;
 use crate::Result;
 
 use crossbeam_channel::{bounded, select, Receiver};
-use crossbeam_utils::sync::WaitGroup;
+use signal_hook::consts::{SIGINT, SIGTERM};
 use signal_hook::iterator::Signals;
 use std::fs;
 use std::io;
@@ -105,22 +105,20 @@ impl TaskManager {
 
         let threads = self.thread_num;
 
-        let wg = WaitGroup::new();
         let (tx, rx) = bounded::<Option<Package>>(threads);
 
         let failures = Arc::new(Mutex::new(vec![]));
         let pending = Arc::new(Mutex::new(vec![]));
 
+        let mut workers = Vec::with_capacity(threads);
         for _ in 0..threads {
             let rx = rx.clone();
             let failures = failures.clone();
             let pending = pending.clone();
-            let wg = wg.clone();
             let quit_notifier = quit_notifier.clone();
-            thread::spawn(move || {
+            workers.push(thread::spawn(move || {
                 while let Ok(Some(pack)) = rx.recv() {
                     log::info!("pack {}", &pack.name);
-                    let _wg = wg.clone();
                     {
                         let mut p = pending.lock().unwrap();
                         log::info!("add to pending:{}", &pack.name);
@@ -152,7 +150,7 @@ impl TaskManager {
                         p.retain(|x| x.name != name);
                     }
                 }
-            });
+            }));
         }
         if !self.packs.is_empty() {
             println!();
@@ -165,7 +163,9 @@ impl TaskManager {
         for _ in 0..threads {
             let _ = tx.send(None);
         }
-        wg.wait();
+        for w in workers {
+            let _ = w.join();
+        }
 
         if !self.packs.is_empty() {
             println!();
@@ -214,10 +214,10 @@ fn helptags() {
 
 fn setup_signal() -> io::Result<Receiver<()>> {
     let (s, r) = bounded(10);
-    let signals = Signals::new(&[signal_hook::SIGTERM, signal_hook::SIGINT])?;
+    let mut signals = Signals::new(&[SIGTERM, SIGINT])?;
 
     thread::spawn(move || {
-        for _ in signals.forever() {
+        for _ in &mut signals {
             drop(s);
             return;
         }

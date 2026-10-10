@@ -2,7 +2,7 @@ use crate::git;
 use crate::package::{self, Package};
 use crate::task::{TaskManager, TaskType};
 use crate::{Error, Result};
-use clap::{value_t, ArgMatches};
+use clap::ArgMatches;
 
 #[derive(Debug)]
 struct UpdateArgs {
@@ -15,10 +15,10 @@ struct UpdateArgs {
 impl UpdateArgs {
     fn from_matches(m: &ArgMatches) -> UpdateArgs {
         UpdateArgs {
-            plugins: m.values_of_lossy("package").unwrap_or_else(|| vec![]),
-            skip: m.values_of_lossy("skip").unwrap_or_else(|| vec![]),
-            threads: value_t!(m, "threads", usize).ok(),
-            packfile: m.is_present("packfile"),
+            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
+            skip: m.get_many::<String>("skip").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
+            threads: m.get_one::<usize>("threads").copied(),
+            packfile: m.get_flag("packfile"),
         }
     }
 }

@@ -3,7 +3,7 @@ use crate::package::{self, Package};
 use crate::task::{TaskManager, TaskType};
 use crate::{Error, Result};
 
-use clap::{value_t, ArgMatches};
+use clap::ArgMatches;
 use num_cpus;
 use std::os::unix::fs::symlink;
 use std::path::Path;
@@ -23,14 +23,14 @@ struct InstallArgs {
 impl InstallArgs {
     fn from_matches(m: &ArgMatches) -> InstallArgs {
         InstallArgs {
-            plugins: m.values_of_lossy("package").unwrap_or_else(|| vec![]),
-            local: m.is_present("local"),
-            on: value_t!(m, "on", String).ok(),
-            for_: value_t!(m, "for", String).ok(),
-            threads: value_t!(m, "threads", usize).ok(),
-            opt: m.is_present("opt"),
-            category: value_t!(m, "category", String).unwrap_or_default(),
-            build: value_t!(m, "build", String).ok(),
+            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
+            local: m.get_flag("local"),
+            on: m.get_one::<String>("on").cloned(),
+            for_: m.get_one::<String>("for").cloned(),
+            threads: m.get_one::<usize>("threads").copied(),
+            opt: m.get_flag("opt"),
+            category: m.get_one::<String>("category").cloned().unwrap_or_default(),
+            build: m.get_one::<String>("build").cloned(),
         }
     }
 }

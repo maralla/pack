@@ -2,7 +2,7 @@ use crate::package;
 use crate::utils;
 use crate::{Error, Result};
 
-use clap::{value_t, ArgMatches};
+use clap::ArgMatches;
 use std::fs;
 use std::io::ErrorKind;
 
@@ -15,8 +15,8 @@ struct ConfigArgs {
 impl ConfigArgs {
     fn from_matches(m: &ArgMatches) -> ConfigArgs {
         ConfigArgs {
-            plugin: value_t!(m, "package", String).unwrap_or_default(),
-            delete: m.is_present("delete"),
+            plugin: m.get_one::<String>("package").cloned().unwrap_or_default(),
+            delete: m.get_flag("delete"),
         }
     }
 }

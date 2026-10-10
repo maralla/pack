@@ -1,7 +1,7 @@
 use crate::package::{self, Package};
 use crate::Result;
 
-use clap::{value_t, ArgMatches};
+use clap::ArgMatches;
 
 #[derive(Debug)]
 struct ListArgs {
@@ -14,10 +14,10 @@ struct ListArgs {
 impl ListArgs {
     fn from_matches(m: &ArgMatches) -> ListArgs {
         ListArgs {
-            start: m.is_present("start"),
-            opt: m.is_present("opt"),
-            detached: m.is_present("detached"),
-            category: value_t!(m, "category", String).ok(),
+            start: m.get_flag("start"),
+            opt: m.get_flag("opt"),
+            detached: m.get_flag("detached"),
+            category: m.get_one::<String>("category").cloned(),
         }
     }
 }

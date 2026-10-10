@@ -1,14 +1,12 @@
-use lazy_static::lazy_static;
+
 use std::io::{self, Write};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use termion::{clear, color, cursor};
 
-lazy_static! {
-    static ref MUTEX: Mutex<u16> = Mutex::new(0);
-}
+static MUTEX: OnceLock<Mutex<u16>> = OnceLock::new();
 
 pub fn line() -> u16 {
-    let mut v = MUTEX.lock().unwrap();
+    let mut v = MUTEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
     let current = *v;
     *v = *v + 1;
     println!();
@@ -16,7 +14,7 @@ pub fn line() -> u16 {
 }
 
 pub fn async_print(line: u16, right: u16, msg: &str) {
-    let current = MUTEX.lock().unwrap();
+    let current = MUTEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
     let offset = *current - line;
     print!("{}", cursor::Hide);
     print!(
