@@ -56,13 +56,16 @@ impl TaskManager {
             // UI is unusable there, so print one plain result line per
             // package instead of driving the cursor.
             let result = func(pack);
+            // The same markers as the interactive UI (hollow circle for
+            // skipped, cross for failure, check for done) so the two modes
+            // read identically; only the color is missing here.
             return match result {
                 (Err(Error::UpToDate), _) => {
-                    println!("= {} up to date", pack.name);
+                    println!("○ {} up to date", pack.name);
                     true
                 }
                 (Err(e), status) => {
-                    println!("x {}: {}", pack.name, e);
+                    println!("✗ {}: {}", pack.name, e);
                     status
                 }
                 (Ok(changelog), _) => {
@@ -70,11 +73,11 @@ impl TaskManager {
                         if let Err(e) =
                             pack.try_build().map_err(|e| Error::build(format!("{}", e)))
                         {
-                            println!("x {}: {}", pack.name, e);
+                            println!("✗ {}: {}", pack.name, e);
                             return false;
                         }
                     }
-                    println!("ok {} updated", pack.name);
+                    println!("✓ {} updated", pack.name);
                     if !changelog.is_empty() {
                         changelog_sink
                             .lock()
