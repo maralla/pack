@@ -146,7 +146,14 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
             }
         }
 
-        for fail in manager.run(install_plugin) {
+        let fails = match manager.run(install_plugin) {
+            // Aborted: skip the regeneration entirely — it cannot be
+            // interrupted once it starts, and the user already asked to stop.
+            Err(Error::Aborted) => return Ok(()),
+            Err(e) => return Err(e),
+            Ok(fails) => fails,
+        };
+        for fail in fails {
             packs.retain(|e| e.name != fail);
         }
     }

@@ -25,6 +25,7 @@ pub enum Error {
     SaveYaml,
     LoadYaml,
     UpToDate,
+    Aborted,
 }
 
 impl Error {
@@ -90,6 +91,7 @@ impl fmt::Display for Error {
             Error::NoPlugin => write!(f, "Can not find such plugin"),
             Error::SkipLocal => write!(f, "Local plugin. Skipping"),
             Error::UpToDate => write!(f, "already up to date"),
+            Error::Aborted => write!(f, "aborted"),
             Error::Io(ref e) => write!(f, "{}", e),
             Error::Build(ref s)
             | Error::Git(ref s)

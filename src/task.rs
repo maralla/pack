@@ -4,10 +4,9 @@ use crate::utils::Spinner;
 use crate::Error;
 use crate::Result;
 
-use crossbeam_channel::{bounded, select, Receiver};
+use crossbeam_channel::bounded;
 use signal_hook::consts::{SIGINT, SIGTERM};
 use signal_hook::iterator::Signals;
-use std::fs;
 use std::io;
 use std::process;
 use std::sync::{Arc, Mutex};
@@ -20,7 +19,6 @@ pub enum TaskType {
 }
 
 pub struct TaskManager {
-    task_type: TaskType,
     packs: Vec<Package>,
     thread_num: usize,
     /// Show the changelog overview of updates (opt-in: default false).
@@ -28,9 +26,8 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
-    pub fn new(task_type: TaskType, thread_num: usize) -> TaskManager {
+    pub fn new(_task_type: TaskType, thread_num: usize) -> TaskManager {
         TaskManager {
-            task_type,
             packs: Vec::new(),
             thread_num,
             changelog: false,
@@ -149,7 +146,7 @@ impl TaskManager {
         successful
     }
 
-    pub fn run<F>(self, func: F) -> Vec<String>
+    pub fn run<F>(self, func: F) -> Result<Vec<String>>
     where
         F: Fn(&Package) -> (Result<Vec<String>>, bool) + Send + 'static + Copy,
     {
@@ -168,59 +165,49 @@ impl TaskManager {
             }
         }
 
-        let quit_notifier = match setup_signal() {
-            Err(e) => die!("Fail to set up signal. {}", e),
-            Ok(r) => r,
-        };
+        // One flag, no quit channel: the signal sets it (see setup_signal),
+        // the workers read it at their stop points, and the feeder stops
+        // feeding and releases them with sentinels. The only thing that
+        // runs to completion is the in-flight git call in the worker
+        // thread; the reclone it would have started is skipped in
+        // git::update, so the finish is quick and nothing new starts.
+        setup_signal().map_err(|e| Error::Io(e))?;
 
         let threads = self.thread_num;
-
         let (tx, rx) = bounded::<Option<Package>>(threads);
-
         let failures = Arc::new(Mutex::new(vec![]));
-        let pending = Arc::new(Mutex::new(vec![]));
         let changelogs = Arc::new(Mutex::new(Vec::<(String, Vec<String>)>::new()));
 
         let mut workers = Vec::with_capacity(threads);
         for _ in 0..threads {
             let rx = rx.clone();
             let failures = failures.clone();
-            let pending = pending.clone();
-            let quit_notifier = quit_notifier.clone();
             let changelogs = changelogs.clone();
             workers.push(thread::spawn(move || {
+                // One level of threads: this thread does the job. The
+                // take blocks only while the queue is empty, and the
+                // sentinels release it; the job blocks only on the
+                // in-flight git call, and the quit check right after it
+                // stops everything else.
                 while let Ok(Some(pack)) = rx.recv() {
-                    log::info!("pack {}", &pack.name);
-                    {
-                        let mut p = pending.lock().unwrap();
-                        log::info!("add to pending:{}", &pack.name);
-                        p.push(pack.clone());
+                    let index = if echo::plain() { 0 } else { echo::line() };
+                    let ok = Self::update(&pack, index, func, &changelogs);
+                    if quitting() {
+                        // Graceful shutdown, the part every earlier design
+                        // missed: drain the queue. The workers exiting
+                        // leave it full of packages nobody will collect;
+                        // the sentinels cannot enter a full queue, the
+                        // feeder sticks on them, and the run hangs. Drain
+                        // everything (discarding it), stop at the sentinel,
+                        // and exit: the queue empties, the sentinels get
+                        // through, every blocked take releases, and the
+                        // joins complete.
+                        while let Ok(Some(_)) = rx.recv() {}
+                        break;
                     }
-
-                    let name = pack.name.clone();
-                    let failures = failures.clone();
-                    let changelogs = changelogs.clone();
-
-                    let (wtx, wrx) = bounded(0);
-                    thread::spawn(move || {
-                        let index = if echo::plain() { 0 } else { echo::line() };
-                        if !Self::update(&pack, index, func, &changelogs) {
-                            let mut f = failures.lock().unwrap();
-                            f.push(pack.name);
-                        }
-                        let _ = wtx.send(());
-                    });
-                    select! {
-                        recv(wrx) -> _ => {},
-                        recv(quit_notifier) -> _ => {
-                            log::info!("quit received {}", &name);
-                            return;
-                        }
-                    }
-                    {
-                        let mut p = pending.lock().unwrap();
-                        log::info!("remove from pending: {}", &name);
-                        p.retain(|x| x.name != name);
+                    if !ok {
+                        let mut f = failures.lock().unwrap();
+                        f.push(pack.name);
                     }
                 }
             }));
@@ -229,15 +216,44 @@ impl TaskManager {
             println!();
         }
 
+        // The feeder: non-blocking sends with a quit-checked retry. A
+        // blocking send here is quit-invisible: the queue fills, the
+        // feeder sticks in send(), the sentinels never go out, and the
+        // workers block on the empty queue — a deadlock the flag cannot
+        // wake. try_send + retry keeps every wait observable.
         for pack in self.packs.iter() {
-            let _ = tx.send(Some(pack.clone()));
+            let item = Some(pack.clone());
+            loop {
+                if quitting() {
+                    break;
+                }
+                match tx.try_send(item.clone()) {
+                    Ok(()) => break,
+                    Err(crossbeam_channel::TrySendError::Full(_)) => {
+                        thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                    Err(_) => break,
+                }
+            }
+            if quitting() {
+                break;
+            }
         }
-
+        // Always release the workers: the sentinels are the wake-up.
         for _ in 0..threads {
             let _ = tx.send(None);
         }
         for w in workers {
             let _ = w.join();
+        }
+
+        if quitting() {
+            // Reached the end: the in-flight git calls finished (the
+            // reclones were skipped in git::update), the workers exited,
+            // the joins completed. Print the message and abort the run;
+            // the caller skips the regeneration, and main returns.
+            println!("aborted");
+            return Err(Error::Aborted);
         }
 
         if !self.packs.is_empty() && !echo::plain() {
@@ -265,15 +281,8 @@ impl TaskManager {
 
         helptags();
 
-        if let TaskType::Install = self.task_type {
-            for p in pending.lock().unwrap().iter() {
-                log::info!("delete {:?}", p.path());
-                let _ = fs::remove_dir_all(p.path());
-            }
-        }
-
         let failures = failures.lock().unwrap();
-        failures.clone()
+        Ok(failures.clone())
     }
 }
 
@@ -313,24 +322,38 @@ fn helptags() {
     }
 }
 
-fn setup_signal() -> io::Result<Receiver<()>> {
-    let (s, r) = bounded(10);
+/// Set up the quit channel: a SIGINT/SIGTERM disconnects it, every worker
+/// observes the disconnection and winds down, and the run aborts before the
+/// regeneration (which is what actually held the shell hostage: the run
+/// itself returned, then the regeneration of `_pack.vim` and the packfile
+/// ran for minutes with nothing able to interrupt it).
+/// The process-wide quit flag. A SIGINT/SIGTERM sets it; every thread
+/// that can stop reads it at its stop points. No channel, no
+/// disconnection semantics, no select multiplexing: a flag read is a
+/// flag read, and the sentinels in `run` do the waking.
+static QUITTING: std::sync::OnceLock<std::sync::atomic::AtomicBool> =
+    std::sync::OnceLock::new();
+
+pub fn quitting() -> bool {
+    QUITTING
+        .get_or_init(Default::default)
+        .load(std::sync::atomic::Ordering::Relaxed)
+}
+
+fn set_quitting() {
+    QUITTING
+        .get_or_init(Default::default)
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn setup_signal() -> io::Result<()> {
     let mut signals = Signals::new([SIGTERM, SIGINT])?;
 
     thread::spawn(move || {
-        // One signal exits. The graceful path (disconnect the quit channel,
-        // the workers observe it, the run winds down) works — but what
-        // follows the run is the regeneration (_pack.vim, the packfile)
-        // written through a slow overlay, and that is outside the quit
-        // chain's reach: observed live, the run returned and the
-        // regeneration kept the shell hostage for many minutes. A single
-        // signal now exits the whole process instead: the in-flight work
-        // dies with it and the regeneration is never reached. The channel
-        // stays connected so the workers keep working until then.
-        let _keep = s;
         for _ in &mut signals {
-            process::exit(130);
+            set_quitting();
+            return;
         }
     });
-    Ok(r)
+    Ok(())
 }

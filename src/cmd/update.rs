@@ -79,7 +79,17 @@ fn update_plugins(
         }
     }
 
-    for fail in manager.run(update_plugin) {
+    let fails = match manager.run(update_plugin) {
+        // Aborted: skip the regeneration entirely — it cannot be
+        // interrupted once it starts, and the user already asked to stop.
+        Err(Error::Aborted) => {
+            eprintln!("[quit-chain] 5: caller skipping regeneration, returning");
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+        Ok(fails) => fails,
+    };
+    for fail in fails {
         packs.retain(|e| e.name != fail);
     }
 

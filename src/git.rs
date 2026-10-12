@@ -58,6 +58,14 @@ pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<UpdateStatus> {
         return Ok(UpdateStatus::UpToDate);
     }
 
+    // The quit check: the reclone is the long network operation, and it is
+    // the one thing that can actually be cancelled — by never starting
+    // it. The in-flight ls-remote above already ran (seconds); nothing
+    // after this line begins once quitting is set.
+    if crate::task::quitting() {
+        return Err(crate::Error::Aborted);
+    }
+
     reclone(&url, path)?;
     // Issue #38: overview of what the update brought in. Only a
     // fast-forward range has a meaningful old..new summary; a diverged
