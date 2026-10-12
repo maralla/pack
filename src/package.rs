@@ -283,7 +283,7 @@ impl Package {
         let fname = if name.ends_with(".vim") {
             name
         } else {
-            format!("{}.vim", &name)
+            format!("{}.vim", name)
         };
         pack_config_dir().join(fname)
     }
@@ -307,8 +307,8 @@ impl Package {
         let mut info: Vec<&str> = self.name.splitn(2, '/').collect();
         info.reverse();
 
-        let repo = info.iter().next().unwrap_or(&"");
-        let user = info.iter().next().unwrap_or(&"");
+        let repo = info.first().unwrap_or(&"");
+        let user = info.first().unwrap_or(&"");
 
         (user, repo)
     }
@@ -351,7 +351,7 @@ impl fmt::Display for Package {
         write!(
             f,
             "{} => pack/{}/{}{}{}",
-            &self.name, &self.category, name, on, types
+            self.name, self.category, name, on, types
         )
     }
 }
@@ -459,7 +459,7 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
         };
 
         if let Some(ref c) = p.load_command {
-            f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+            f.write_all(format!("\" {}\n", p.name).as_bytes())?;
             written = true;
             let (_, repo) = p.repo();
             let msg = format!(
@@ -474,7 +474,7 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
 
         if !p.for_types.is_empty() {
             if !written {
-                f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+                f.write_all(format!("\" {}\n", p.name).as_bytes())?;
                 written = true;
             }
             let (_, repo) = p.repo();
@@ -489,7 +489,7 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
 
         if !p.on_map.is_empty() {
             if !written {
-                f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+                f.write_all(format!("\" {}\n", p.name).as_bytes())?;
                 written = true;
             }
             // Issue #49: a bootstrap mapping per key: load the dependency
@@ -519,9 +519,9 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
         if path.is_file() {
             File::open(&path)?.read_to_string(&mut buf)?;
             if !written {
-                f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+                f.write_all(format!("\" {}\n", p.name).as_bytes())?;
             }
-            f.write_all(format!("{}\n", &buf).as_bytes())?;
+            f.write_all(format!("{}\n", buf).as_bytes())?;
         }
     }
     Ok(())
@@ -534,16 +534,14 @@ where
     if !dir.is_dir() {
         return Ok(());
     }
-    for entry in dir.read_dir()? {
-        if let Ok(e) = entry {
-            let sub = e.path();
-            let item = match sub.file_name().iter().flat_map(|s| s.to_str()).next() {
-                None => continue,
-                Some(i) => i.to_string(),
-            };
-            if sub.is_dir() && !item.starts_with('.') {
-                action(&sub, item)?;
-            }
+    for e in dir.read_dir()?.flatten() {
+        let sub = e.path();
+        let item = match sub.file_name().iter().flat_map(|s| s.to_str()).next() {
+            None => continue,
+            Some(i) => i.to_string(),
+        };
+        if sub.is_dir() && !item.starts_with('.') {
+            action(&sub, item)?;
         }
     }
     Ok(())
@@ -554,7 +552,7 @@ where
     F: Fn(&str, &str, &str),
 {
     read_dir(pack_dir(), |path, cate| {
-        let is_match = category.as_ref().map_or(true, |c| *c == cate);
+        let is_match = category.as_ref().is_none_or(|c| *c == cate);
         if !is_match {
             Ok(())
         } else {

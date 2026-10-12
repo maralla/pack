@@ -25,7 +25,7 @@ struct InstallArgs {
 impl InstallArgs {
     fn from_matches(m: &ArgMatches) -> InstallArgs {
         InstallArgs {
-            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
+            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_default(),
             local: m.get_flag("local"),
             on: m.get_one::<String>("on").cloned(),
             for_: m.get_one::<String>("for").cloned(),
@@ -176,7 +176,7 @@ fn do_install(pack: &Package) -> Result<Vec<String>> {
         if !src.is_dir() {
             Err(Error::NoPlugin)
         } else {
-            symlink(&src, &path)?;
+            symlink(src, &path)?;
             Ok(Vec::new())
         }
     } else {

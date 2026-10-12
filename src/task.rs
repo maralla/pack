@@ -28,7 +28,7 @@ pub struct TaskManager {
 impl TaskManager {
     pub fn new(task_type: TaskType, thread_num: usize) -> TaskManager {
         TaskManager {
-            task_type: task_type,
+            task_type,
             packs: Vec::new(),
             thread_num,
         }
@@ -83,9 +83,9 @@ impl TaskManager {
             };
         }
 
-        let msg = format!(" [{}]", &pack.name);
+        let msg = format!(" [{}]", pack.name);
         let pos = msg.len() as u16;
-        echo::message(line, 0, &format!("    {} syncing", &msg));
+        echo::message(line, 0, &format!("    {} syncing", msg));
 
         const MSG_MARGIN: u16 = 5;
         const SIGN_MARGIN: u16 = 3;
@@ -276,7 +276,9 @@ fn helptags() {
     // (normal mode), so an inherited stdin/stderr keeps it holding the
     // caller's terminal or pipe. Through a pipe that is a hang (the
     // pipeline never EOFs while the child lives); on a terminal it is an
-    // input-rate collapse (the child races the shell for input).
+    // input-rate collapse (the child races the shell for input). Waiting
+    // for it would reintroduce both.
+    #[allow(clippy::zombie_processes)] // deliberate: the editor must outlive pack
     match process::Command::new("vim")
         .arg("--not-a-term")
         .arg("-c")
@@ -307,12 +309,11 @@ fn helptags() {
 
 fn setup_signal() -> io::Result<Receiver<()>> {
     let (s, r) = bounded(10);
-    let mut signals = Signals::new(&[SIGTERM, SIGINT])?;
+    let mut signals = Signals::new([SIGTERM, SIGINT])?;
 
     thread::spawn(move || {
-        for _ in &mut signals {
+        if (&mut signals).into_iter().next().is_some() {
             drop(s);
-            return;
         }
     });
     Ok(r)

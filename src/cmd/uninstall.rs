@@ -13,7 +13,7 @@ struct UninstallArgs {
 impl UninstallArgs {
     fn from_matches(m: &ArgMatches) -> UninstallArgs {
         UninstallArgs {
-            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
+            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_default(),
             all: m.get_flag("all"),
         }
     }

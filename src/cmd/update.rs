@@ -15,8 +15,8 @@ struct UpdateArgs {
 impl UpdateArgs {
     fn from_matches(m: &ArgMatches) -> UpdateArgs {
         UpdateArgs {
-            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
-            skip: m.get_many::<String>("skip").map(|v| v.cloned().collect()).unwrap_or_else(|| vec![]),
+            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_default(),
+            skip: m.get_many::<String>("skip").map(|v| v.cloned().collect()).unwrap_or_default(),
             threads: m.get_one::<usize>("threads").copied(),
             packfile: m.get_flag("packfile"),
         }

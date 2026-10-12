@@ -47,7 +47,7 @@ mod task;
 pub use error::{Error, Result};
 
 fn main() {
-    let _ = env::var("PACK_LOG_FILE").and_then(|x| {
+    let _ = env::var("PACK_LOG_FILE").map(|x| {
         let f = OpenOptions::new().create(true).append(true).open(&x);
         match f {
             Ok(f) => {
@@ -57,7 +57,6 @@ fn main() {
             }
             Err(e) => eprintln!("fail to init logging: {}", e),
         }
-        Ok(())
     });
 
     let app_m = cli::build_cli().get_matches();

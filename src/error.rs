@@ -5,8 +5,6 @@ use std::path::Path;
 use std::path::StripPrefixError;
 use std::result::Result as StdResult;
 
-use git2;
-use walkdir;
 use yaml_rust2::{EmitError, ScanError};
 
 pub type Result<T> = StdResult<T, Error>;

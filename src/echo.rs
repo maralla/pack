@@ -30,7 +30,7 @@ pub fn line() -> u16 {
 fn next_line_index() -> u16 {
     let mut v = MUTEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
     let current = *v;
-    *v = *v + 1;
+    *v += 1;
     current
 }
 
