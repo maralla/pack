@@ -17,16 +17,26 @@ pub enum UpdateStatus {
 }
 
 fn github_url(name: &str) -> String {
+    // A full address (git://, http://, ssh://, …) is used as it is;
+    // only the github shorthand gets the location prefix.
+    if name.contains("://") {
+        return name.to_string();
+    }
     format!("{}/{}", LOCATION, name)
 }
 
 pub fn clone<P: AsRef<Path>>(name: &str, target: P) -> Result<()> {
     let url = github_url(name);
-    let result = git2::Repository::clone_recurse(&url, &target);
-    if result.is_err() {
-        fs::remove_dir_all(&target)?;
-    }
-    Ok(())
+    // A failed clone cleans up what it managed to create, best effort:
+    // the real error is the clone's — a cleanup error (the target was
+    // never created) must not mask it, and a failed clone must not
+    // report success.
+    git2::Repository::clone_recurse(&url, &target)
+        .map(|_| ())
+        .map_err(|e| {
+            let _ = fs::remove_dir_all(&target);
+            crate::Error::Git(e.message().to_string())
+        })
 }
 
 /// Update a plugin checkout to the upstream tip.

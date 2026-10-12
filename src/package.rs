@@ -304,6 +304,13 @@ impl Package {
     }
 
     pub fn repo(&self) -> (&str, &str) {
+        // A full address (git://, http://, ssh://, …): the repository
+        // name is its last component, .git stripped; there is no user.
+        if self.name.contains("://") {
+            let repo = self.name.rsplit('/').next().unwrap_or("");
+            let repo = repo.strip_suffix(".git").unwrap_or(repo);
+            return ("", repo);
+        }
         let mut info: Vec<&str> = self.name.splitn(2, '/').collect();
         info.reverse();
 
