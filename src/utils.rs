@@ -29,6 +29,14 @@ pub struct Spinner {
 
 impl Spinner {
     pub fn spin(x: u16, y: u16) -> Spinner {
+        if echo::plain() {
+            // Non-interactive sink: no spinner (and no spinner thread whose
+            // death could take pack down with it).
+            return Spinner {
+                tx: None,
+                handle: None,
+            };
+        }
         let (tx, rx) = channel();
         let handle = thread::spawn(move || {
             for &c in SPINNER_CHARS.iter().cycle() {

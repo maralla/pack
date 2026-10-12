@@ -43,6 +43,35 @@ impl TaskManager {
     where
         F: Fn(&Package) -> (Result<()>, bool),
     {
+        if echo::plain() {
+            // Non-interactive sink (pipe, file, CI — issue #33): the cursor
+            // UI is unusable there, so print one plain result line per
+            // package instead of driving the cursor.
+            let result = func(pack);
+            return match result {
+                (Err(Error::UpToDate), _) => {
+                    println!("= {} up to date", pack.name);
+                    true
+                }
+                (Err(e), status) => {
+                    println!("x {}: {}", pack.name, e);
+                    status
+                }
+                (Ok(()), _) => {
+                    if pack.build_command.is_some() {
+                        if let Err(e) =
+                            pack.try_build().map_err(|e| Error::build(format!("{}", e)))
+                        {
+                            println!("x {}: {}", pack.name, e);
+                            return false;
+                        }
+                    }
+                    println!("ok {} updated", pack.name);
+                    true
+                }
+            };
+        }
+
         let msg = format!(" [{}]", &pack.name);
         let pos = msg.len() as u16;
         echo::message(line, 0, &format!("    {} syncing", &msg));
@@ -101,13 +130,15 @@ impl TaskManager {
             die!("No plugins to sync");
         }
 
-        let y = match terminal_size() {
-            Err(e) => die!("Fail to get terminal size. {}", e),
-            Ok((_, y)) => y,
-        };
+        if !echo::plain() {
+            let y = match terminal_size() {
+                Err(e) => die!("Fail to get terminal size. {}", e),
+                Ok((_, y)) => y,
+            };
 
-        if y <= 2 {
-            die!("Terminal size too small.");
+            if y <= 2 {
+                die!("Terminal size too small.");
+            }
         }
 
         let quit_notifier = match setup_signal() {
@@ -142,7 +173,7 @@ impl TaskManager {
 
                     let (wtx, wrx) = bounded(0);
                     thread::spawn(move || {
-                        let index = echo::line();
+                        let index = if echo::plain() { 0 } else { echo::line() };
                         if !Self::update(&pack, index, func) {
                             let mut f = failures.lock().unwrap();
                             f.push(pack.name);
@@ -164,7 +195,7 @@ impl TaskManager {
                 }
             }));
         }
-        if !self.packs.is_empty() {
+        if !self.packs.is_empty() && !echo::plain() {
             println!();
         }
 
@@ -179,7 +210,7 @@ impl TaskManager {
             let _ = w.join();
         }
 
-        if !self.packs.is_empty() {
+        if !self.packs.is_empty() && !echo::plain() {
             println!();
         }
 
