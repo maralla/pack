@@ -272,11 +272,18 @@ impl TaskManager {
 }
 
 fn helptags() {
+    // Detach the editor completely: it stays alive after the command
+    // (normal mode), so an inherited stdin/stderr keeps it holding the
+    // caller's terminal or pipe. Through a pipe that is a hang (the
+    // pipeline never EOFs while the child lives); on a terminal it is an
+    // input-rate collapse (the child races the shell for input).
     match process::Command::new("vim")
         .arg("--not-a-term")
         .arg("-c")
         .arg("silent! helptags ALL")
+        .stdin(process::Stdio::null())
         .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
         .spawn()
     {
         Ok(_) => (),
@@ -286,7 +293,9 @@ fn helptags() {
                     .arg("--headless")
                     .arg("-c")
                     .arg("silent! helptags ALL")
+                    .stdin(process::Stdio::null())
                     .stdout(process::Stdio::null())
+                    .stderr(process::Stdio::null())
                     .spawn()
                     .expect("Error opening nvim");
             } else {
