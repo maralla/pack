@@ -143,7 +143,7 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
     package::save(packs)
 }
 
-fn install_plugin(pack: &Package) -> (Result<()>, bool) {
+fn install_plugin(pack: &Package) -> (Result<Vec<String>>, bool) {
     let res = do_install(pack);
     let status = match res {
         Err(Error::PluginInstalled(_)) => true,
@@ -153,7 +153,7 @@ fn install_plugin(pack: &Package) -> (Result<()>, bool) {
     (res, status)
 }
 
-fn do_install(pack: &Package) -> Result<()> {
+fn do_install(pack: &Package) -> Result<Vec<String>> {
     let path = pack.path();
     if path.is_dir() {
         Err(Error::plugin_installed(&path))
@@ -163,9 +163,10 @@ fn do_install(pack: &Package) -> Result<()> {
             Err(Error::NoPlugin)
         } else {
             symlink(&src, &path)?;
-            Ok(())
+            Ok(Vec::new())
         }
     } else {
-        git::clone(&pack.name, &path)
+        git::clone(&pack.name, &path)?;
+        Ok(Vec::new())
     }
 }

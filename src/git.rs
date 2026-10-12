@@ -10,8 +10,9 @@ const LOCATION: &str = "https://github.com";
 pub enum UpdateStatus {
     /// The local checkout already matches the upstream tip: nothing to do.
     UpToDate,
-    /// The repository was replaced with a fresh clone of the new tip.
-    Updated,
+    /// The repository was replaced with a fresh clone of the new tip,
+    /// carrying a summary of the commits in between (issue #38).
+    Updated(Vec<String>),
 }
 
 fn github_url(name: &str) -> String {
@@ -58,7 +59,46 @@ pub fn update<P: AsRef<Path>>(name: &str, path: P) -> Result<UpdateStatus> {
     }
 
     reclone(&url, path)?;
-    Ok(UpdateStatus::Updated)
+    // Issue #38: overview of what the update brought in. Only a
+    // fast-forward range has a meaningful old..new summary; a diverged
+    // `local` is unrelated history and gets no overview.
+    let repo = Repository::open(path)?;
+    let changelog = changelog(&repo, local, remote_head);
+    Ok(UpdateStatus::Updated(changelog))
+}
+
+/// One-line summary (`short-oid subject`) of each commit in `old..new`
+/// (exclusive of `old`), capped. Empty when the range is not walkable.
+fn changelog(repo: &Repository, old: git2::Oid, new: git2::Oid) -> Vec<String> {
+    const CAP: usize = 20;
+    let mut out = Vec::new();
+    if !repo.graph_descendant_of(new, old).unwrap_or(false) {
+        return out;
+    }
+    let mut stack = match repo.find_commit(new) {
+        Ok(c) => vec![c],
+        Err(_) => return out,
+    };
+    let mut seen = std::collections::HashSet::new();
+    while let Some(commit) = stack.pop() {
+        let id = commit.id();
+        if id == old || !seen.insert(id) {
+            continue;
+        }
+        if out.len() >= CAP {
+            break;
+        }
+        let hex = id.to_string();
+        out.push(format!(
+            "{} {}",
+            &hex[..hex.len().min(7)],
+            commit.summary().unwrap_or("")
+        ));
+        for parent in commit.parents() {
+            stack.push(parent);
+        }
+    }
+    out
 }
 
 /// Replace `path` with a fresh clone of `url`.

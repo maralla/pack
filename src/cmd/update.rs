@@ -82,7 +82,7 @@ fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result
     Ok(())
 }
 
-fn update_plugin(pack: &Package) -> (Result<()>, bool) {
+fn update_plugin(pack: &Package) -> (Result<Vec<String>>, bool) {
     let res = do_update(pack);
     let status = match res {
         Err(Error::SkipLocal) | Err(Error::Git(_)) => true,
@@ -92,7 +92,7 @@ fn update_plugin(pack: &Package) -> (Result<()>, bool) {
     (res, status)
 }
 
-fn do_update(pack: &Package) -> Result<()> {
+fn do_update(pack: &Package) -> Result<Vec<String>> {
     let path = pack.path();
     if !path.is_dir() {
         Err(Error::PluginNotInstalled)
@@ -100,10 +100,11 @@ fn do_update(pack: &Package) -> Result<()> {
         Err(Error::SkipLocal)
     } else {
         // UpToDate is reported as the sentinel error so the task runner can
-        // ignore the package without counting it as a failure.
+        // ignore the package without counting it as a failure; the
+        // changelog travels as the Ok payload (printed after the run).
         match git::update(&pack.name, &path)? {
             git::UpdateStatus::UpToDate => Err(Error::UpToDate),
-            git::UpdateStatus::Updated => Ok(()),
+            git::UpdateStatus::Updated(log) => Ok(log),
         }
     }
 }

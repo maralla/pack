@@ -39,9 +39,14 @@ impl TaskManager {
     }
 
     /// returns true on success otherwise false
-    fn update<F>(pack: &Package, line: u16, func: F) -> bool
+    fn update<F>(
+        pack: &Package,
+        line: u16,
+        func: F,
+        changelog_sink: &Mutex<Vec<(String, Vec<String>)>>,
+    ) -> bool
     where
-        F: Fn(&Package) -> (Result<()>, bool),
+        F: Fn(&Package) -> (Result<Vec<String>>, bool),
     {
         if echo::plain() {
             // Non-interactive sink (pipe, file, CI — issue #33): the cursor
@@ -57,7 +62,7 @@ impl TaskManager {
                     println!("x {}: {}", pack.name, e);
                     status
                 }
-                (Ok(()), _) => {
+                (Ok(changelog), _) => {
                     if pack.build_command.is_some() {
                         if let Err(e) =
                             pack.try_build().map_err(|e| Error::build(format!("{}", e)))
@@ -67,6 +72,12 @@ impl TaskManager {
                         }
                     }
                     println!("ok {} updated", pack.name);
+                    if !changelog.is_empty() {
+                        changelog_sink
+                            .lock()
+                            .unwrap()
+                            .push((pack.name.clone(), changelog.clone()));
+                    }
                     true
                 }
             };
@@ -117,6 +128,16 @@ impl TaskManager {
             if successful {
                 echo::character(line, SIGN_MARGIN, '✓', color::Green);
                 echo::inline_message(line, MSG_MARGIN + pos, "done");
+                // Issue #38: collect the update changelog for the
+                // end-of-run overview.
+                if let (Ok(changelog), _) = &result {
+                    if !changelog.is_empty() {
+                        changelog_sink
+                            .lock()
+                            .unwrap()
+                            .push((pack.name.clone(), changelog.clone()));
+                    }
+                }
             }
         }
         successful
@@ -124,7 +145,7 @@ impl TaskManager {
 
     pub fn run<F>(self, func: F) -> Vec<String>
     where
-        F: Fn(&Package) -> (Result<()>, bool) + Send + 'static + Copy,
+        F: Fn(&Package) -> (Result<Vec<String>>, bool) + Send + 'static + Copy,
     {
         if self.packs.is_empty() {
             die!("No plugins to sync");
@@ -152,6 +173,7 @@ impl TaskManager {
 
         let failures = Arc::new(Mutex::new(vec![]));
         let pending = Arc::new(Mutex::new(vec![]));
+        let changelogs = Arc::new(Mutex::new(Vec::<(String, Vec<String>)>::new()));
 
         let mut workers = Vec::with_capacity(threads);
         for _ in 0..threads {
@@ -159,6 +181,7 @@ impl TaskManager {
             let failures = failures.clone();
             let pending = pending.clone();
             let quit_notifier = quit_notifier.clone();
+            let changelogs = changelogs.clone();
             workers.push(thread::spawn(move || {
                 while let Ok(Some(pack)) = rx.recv() {
                     log::info!("pack {}", &pack.name);
@@ -170,11 +193,12 @@ impl TaskManager {
 
                     let name = pack.name.clone();
                     let failures = failures.clone();
+                    let changelogs = changelogs.clone();
 
                     let (wtx, wrx) = bounded(0);
                     thread::spawn(move || {
                         let index = if echo::plain() { 0 } else { echo::line() };
-                        if !Self::update(&pack, index, func) {
+                        if !Self::update(&pack, index, func, &changelogs) {
                             let mut f = failures.lock().unwrap();
                             f.push(pack.name);
                         }
@@ -212,6 +236,23 @@ impl TaskManager {
 
         if !self.packs.is_empty() && !echo::plain() {
             println!();
+        }
+
+        // Issue #38: changelog overview of everything updated in this run,
+        // after the per-package UI is done.
+        {
+            let changelogs = changelogs.lock().unwrap();
+            if !changelogs.is_empty() {
+                println!("Changelogs of updated packages:");
+                println!();
+                for (name, log) in changelogs.iter() {
+                    println!("{}", name);
+                    for entry in log {
+                        println!("  {}", entry);
+                    }
+                    println!();
+                }
+            }
         }
 
         log::info!("quit");
