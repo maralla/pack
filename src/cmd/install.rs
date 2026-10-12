@@ -18,6 +18,7 @@ struct InstallArgs {
     opt: bool,
     category: String,
     build: Option<String>,
+    depend: Option<Vec<String>>,
 }
 
 impl InstallArgs {
@@ -31,6 +32,7 @@ impl InstallArgs {
             opt: m.get_flag("opt"),
             category: m.get_one::<String>("category").cloned().unwrap_or_default(),
             build: m.get_one::<String>("build").cloned(),
+            depend: m.get_many::<String>("depend").map(|v| v.map(|x| x.to_string()).collect()),
         }
     }
 }
@@ -42,6 +44,7 @@ struct Plugins {
     on: Option<String>,
     types: Option<Vec<String>>,
     build: Option<String>,
+    depend: Option<Vec<String>>,
     threads: usize,
     local: bool,
 }
@@ -70,6 +73,7 @@ pub fn exec(matches: &ArgMatches) {
         on: args.on,
         types,
         build: args.build,
+        depend: args.depend,
         threads,
         local: args.local,
     };
@@ -104,6 +108,9 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
                 }
                 if let Some(ref c) = plugins.build {
                     p.set_build_command(c);
+                }
+                if let Some(d) = plugins.depend.as_ref() {
+                    p.set_depend(d.clone());
                 }
                 p
             });

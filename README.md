@@ -100,7 +100,31 @@ $ pack install gregsexton/gitv --on Gitv
 
 # install a plugin and build after installed
 $ pack install Shougo/vimproc.vim --build 'make'
+
+# install a plugin that requires another plugin loaded first
+$ pack install itchyny/vim-gitwatch --on Gitwatch --depend maralla/gomod.vim
 ```
+
+#### Load order and dependencies
+
+Some plugins require another plugin to be loaded first. `pack install
+--depend <repo>` records the requirement, and every load trigger pack
+generates (`--on` commands, `--for` file types) loads the whole
+dependency chain first, in order:
+
+```vim
+" generated for `pack install a --on Cmd --depend b` (and b --depend c):
+command! -nargs=* -range -bang Cmd packadd c | packadd b | packadd a | call s:do_cmd(...)
+```
+
+Dependencies must be managed by pack (installed through it); an unknown
+dependency is an error, not a silent skip.
+
+Note that this orders *lazy* loads (plugins under `pack/*/opt` with a load
+trigger). Plugins installed into `pack/*/start` are sourced by Vim itself
+in directory order, which pack does not control: keep such plugins
+independent, or give the dependency a load trigger so the chain orders
+itself.
 
 #### Config a plugin
 

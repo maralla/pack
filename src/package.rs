@@ -71,6 +71,8 @@ pub struct Package {
     pub for_types: Vec<String>,
     /// Build command for this package
     pub build_command: Option<String>,
+    /// Repositories this package requires loaded first (issue #56)
+    pub depend: Vec<String>,
     /// Local plugin
     pub local: bool,
 }
@@ -84,6 +86,7 @@ impl Package {
             load_command: None,
             for_types: Vec::new(),
             build_command: None,
+            depend: Vec::new(),
             local: false,
         }
     }
@@ -112,6 +115,10 @@ impl Package {
         self.build_command = Some(cmd.to_string())
     }
 
+    pub fn set_depend(&mut self, depend: Vec<String>) {
+        self.depend = depend
+    }
+
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"]
             .as_str()
@@ -125,6 +132,17 @@ impl Package {
         let cmd = doc["on"].as_str().map(|s| s.to_string());
         let build = doc["build"].as_str().map(|s| s.to_string());
         let is_local = doc["local"].as_bool().unwrap_or(false);
+
+        let depend = match doc["depend"].as_vec() {
+            Some(d) => {
+                let mut depend = Vec::with_capacity(d.len());
+                for e in d {
+                    depend.push(e.as_str().map(|s| s.to_string()).ok_or(Error::Format)?);
+                }
+                depend
+            }
+            None => vec![],
+        };
 
         let types = match doc["for"].as_vec() {
             Some(f) => {
@@ -144,6 +162,7 @@ impl Package {
             load_command: cmd,
             for_types: types,
             build_command: build,
+            depend,
             local: is_local,
         })
     }
@@ -167,6 +186,14 @@ impl Package {
                 .map(|e| Yaml::from_str(e))
                 .collect::<Vec<Yaml>>();
             doc.insert(Yaml::from_str("for"), Yaml::Array(types));
+        }
+        if !self.depend.is_empty() {
+            let depend = self
+                .depend
+                .iter()
+                .map(|e| Yaml::from_str(e))
+                .collect::<Vec<Yaml>>();
+            doc.insert(Yaml::from_str("depend"), Yaml::Array(depend));
         }
         Yaml::Hash(doc)
     }
@@ -339,6 +366,39 @@ pub fn save(packs: Vec<Package>) -> Result<()> {
     Ok(())
 }
 
+/// Transitively resolve `p`'s load dependencies (issue #56): every
+/// repository that must be loaded before `p`, in load order, excluding
+/// `p` itself. Unknown dependencies (not managed by pack) are an error —
+/// a silent skip would emit a trigger that loads nothing.
+fn resolve_depend(p: &Package, packs: &[Package]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    let mut stack = vec![p.name.clone()];
+    while let Some(name) = stack.pop() {
+        for dep in &packs
+            .iter()
+            .find(|x| x.name == name)
+            .ok_or_else(|| Error::PackFile(format!("Unknown dependency: {}", name)))?
+            .depend
+        {
+            if !out.contains(dep) {
+                out.push(dep.clone());
+            }
+            stack.push(dep.clone());
+        }
+    }
+    // Resolve to repository names: the generated triggers packadd those.
+    Ok(out
+        .iter()
+        .map(|name| {
+            packs
+                .iter()
+                .find(|x| x.name == *name)
+                .map(|x| x.repo().1.to_string())
+                .unwrap_or_else(|| name.clone())
+        })
+        .collect())
+}
+
 pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
     if !pack_plugin_dir().is_dir() {
         fs::create_dir_all(pack_plugin_dir())?;
@@ -351,15 +411,27 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
     for (p, path) in packs.iter().map(|x| (x, x.existing_config_path())) {
         buf.clear();
         let mut written = false;
+        // Issue #56: load dependencies first, in the same trigger.
+        let deps = resolve_depend(p, packs)?;
+        let deps_prefix = if deps.is_empty() {
+            String::new()
+        } else {
+            let mut s = String::new();
+            for dep in &deps {
+                s.push_str(&format!("packadd {} | ", dep));
+            }
+            s
+        };
 
         if let Some(ref c) = p.load_command {
             f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
             written = true;
             let (_, repo) = p.repo();
             let msg = format!(
-                "command! -nargs=* -range -bang {cmd} packadd {repo} | \
+                "command! -nargs=* -range -bang {cmd} {deps}packadd {repo} | \
                  call s:do_cmd('{cmd}', \"<bang>\", <line1>, <line2>, <q-args>)\n\n",
                 cmd = c,
+                deps = deps_prefix,
                 repo = repo
             );
             f.write_all(msg.as_bytes())?;
@@ -372,9 +444,10 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
             }
             let (_, repo) = p.repo();
             let msg = format!(
-                "autocmd FileType {} packadd {}\n\n",
-                p.for_types.join(","),
-                repo
+                "autocmd FileType {types} {deps}packadd {repo}\n\n",
+                types = p.for_types.join(","),
+                deps = deps_prefix,
+                repo = repo,
             );
             f.write_all(msg.as_bytes())?;
         }

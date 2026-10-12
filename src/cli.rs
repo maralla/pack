@@ -82,6 +82,13 @@ pub fn build_cli() -> Command {
                         .value_name("BUILD_CMD"),
                 )
                 .arg(
+                    Arg::new("depend")
+                        .long("depend")
+                        .action(ArgAction::Append)
+                        .help("Repository this package requires loaded first")
+                        .value_name("REPO"),
+                )
+                .arg(
                     Arg::new("threads")
                         .short('j')
                         .long("threads")
