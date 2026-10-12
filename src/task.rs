@@ -315,8 +315,22 @@ fn setup_signal() -> io::Result<Receiver<()>> {
     let mut signals = Signals::new([SIGTERM, SIGINT])?;
 
     thread::spawn(move || {
-        if (&mut signals).into_iter().next().is_some() {
-            drop(s);
+        // Two stages: the first signal disconnects the quit channel (the
+        // workers observe it and the run winds down), and a second signal
+        // force-exits. The graceful path is a long chain (signal handler,
+        // this thread, the channel, every worker's select, the joins, the
+        // run's exit) and any hop failing leaves the run uninterruptible —
+        // observed live: six SIGINTs with no exit. The second signal
+        // short-circuits the whole chain.
+        let mut s = Some(s);
+        let mut stage = 0;
+        for _ in &mut signals {
+            if stage == 0 {
+                drop(s.take());
+                stage = 1;
+            } else {
+                process::exit(130);
+            }
         }
     });
     Ok(r)
