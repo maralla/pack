@@ -180,8 +180,18 @@ fn reclone(url: &str, path: &Path) -> Result<()> {
             break;
         }
         if crate::task::quitting() {
-            // Abandon the transfer: no swap, no sweep, the partial clone
-            // stays under the .new.<pid> name for the next run's sweep.
+            // The quit sequence, in order:
+            // 1. Cancel the current work: abandon the transfer. The handle
+            //    is dropped and the thread stays detached; the process exit
+            //    at the end of the quit sequence kills it.
+            drop(handle);
+            // 2. Clear the unfinished things: remove this run's partial
+            //    clone now, blocking — the quit does not happen before
+            //    the cleanup. Whatever the abandoned thread still manages
+            //    to write is residual, cleared by the top-of-reclone
+            //    sweeper of the next run that gets here.
+            let _ = fs::remove_dir_all(&tmp);
+            // 3. Then quit.
             return Err(crate::Error::Aborted);
         }
         thread::sleep(Duration::from_millis(50));
