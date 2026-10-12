@@ -19,6 +19,7 @@ struct InstallArgs {
     category: String,
     build: Option<String>,
     depend: Option<Vec<String>>,
+    on_map: Option<Vec<String>>,
 }
 
 impl InstallArgs {
@@ -33,6 +34,7 @@ impl InstallArgs {
             category: m.get_one::<String>("category").cloned().unwrap_or_default(),
             build: m.get_one::<String>("build").cloned(),
             depend: m.get_many::<String>("depend").map(|v| v.map(|x| x.to_string()).collect()),
+            on_map: m.get_many::<String>("on-map").map(|v| v.map(|x| x.to_string()).collect()),
         }
     }
 }
@@ -45,6 +47,7 @@ struct Plugins {
     types: Option<Vec<String>>,
     build: Option<String>,
     depend: Option<Vec<String>>,
+    on_map: Option<Vec<String>>,
     threads: usize,
     local: bool,
 }
@@ -61,7 +64,7 @@ pub fn exec(matches: &ArgMatches) {
         die!("Threads should be greater than 0");
     }
 
-    let opt = args.on.is_some() || args.for_.is_some() || args.opt;
+    let opt = args.on.is_some() || args.for_.is_some() || args.on_map.is_some() || args.opt;
     let types = args
         .for_
         .map(|e| e.split(',').map(|e| e.to_string()).collect::<Vec<String>>());
@@ -74,6 +77,7 @@ pub fn exec(matches: &ArgMatches) {
         types,
         build: args.build,
         depend: args.depend,
+        on_map: args.on_map,
         threads,
         local: args.local,
     };
@@ -111,6 +115,9 @@ fn install_plugins(plugins: &Plugins) -> Result<()> {
                 }
                 if let Some(d) = plugins.depend.as_ref() {
                     p.set_depend(d.clone());
+                }
+                if let Some(m) = plugins.on_map.as_ref() {
+                    p.set_on_map(m.clone());
                 }
                 p
             });

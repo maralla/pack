@@ -19,6 +19,14 @@ scriptencoding utf-8
 function! s:do_cmd(cmd, bang, start, end, args)
     exec printf('%s%s%s %s', (a:start == a:end ? '' : (a:start.','.a:end)), a:cmd, a:bang, a:args)
 endfunction
+
+function! s:load_on_map(mode, keys, repos)
+    for repo in a:repos
+        exec 'packadd! ' . repo
+    endfor
+    exec a:mode . 'unmap ' . a:keys
+    call feedkeys(a:keys, 'i')
+endfunction
 ";
 
 const PACKFILE_HEADER: &[u8] = b"# vim: ft=yaml
@@ -73,6 +81,8 @@ pub struct Package {
     pub build_command: Option<String>,
     /// Repositories this package requires loaded first (issue #56)
     pub depend: Vec<String>,
+    /// Load this package when these mappings are triggered (issue #49)
+    pub on_map: Vec<String>,
     /// Local plugin
     pub local: bool,
 }
@@ -87,6 +97,7 @@ impl Package {
             for_types: Vec::new(),
             build_command: None,
             depend: Vec::new(),
+            on_map: Vec::new(),
             local: false,
         }
     }
@@ -119,6 +130,10 @@ impl Package {
         self.depend = depend
     }
 
+    pub fn set_on_map(&mut self, on_map: Vec<String>) {
+        self.on_map = on_map
+    }
+
     pub fn from_yaml(doc: &Yaml) -> Result<Package> {
         let name = doc["name"]
             .as_str()
@@ -132,6 +147,17 @@ impl Package {
         let cmd = doc["on"].as_str().map(|s| s.to_string());
         let build = doc["build"].as_str().map(|s| s.to_string());
         let is_local = doc["local"].as_bool().unwrap_or(false);
+
+        let on_map = match doc["on_map"].as_vec() {
+            Some(d) => {
+                let mut on_map = Vec::with_capacity(d.len());
+                for e in d {
+                    on_map.push(e.as_str().map(|s| s.to_string()).ok_or(Error::Format)?);
+                }
+                on_map
+            }
+            None => vec![],
+        };
 
         let depend = match doc["depend"].as_vec() {
             Some(d) => {
@@ -163,6 +189,7 @@ impl Package {
             for_types: types,
             build_command: build,
             depend,
+            on_map,
             local: is_local,
         })
     }
@@ -194,6 +221,14 @@ impl Package {
                 .map(|e| Yaml::from_str(e))
                 .collect::<Vec<Yaml>>();
             doc.insert(Yaml::from_str("depend"), Yaml::Array(depend));
+        }
+        if !self.on_map.is_empty() {
+            let on_map = self
+                .on_map
+                .iter()
+                .map(|e| Yaml::from_str(e))
+                .collect::<Vec<Yaml>>();
+            doc.insert(Yaml::from_str("on_map"), Yaml::Array(on_map));
         }
         Yaml::Hash(doc)
     }
@@ -450,6 +485,35 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
                 repo = repo,
             );
             f.write_all(msg.as_bytes())?;
+        }
+
+        if !p.on_map.is_empty() {
+            if !written {
+                f.write_all(format!("\" {}\n", &p.name).as_bytes())?;
+                written = true;
+            }
+            // Issue #49: a bootstrap mapping per key: load the dependency
+            // chain (see resolve_depend), drop the bootstrap, re-trigger
+            // the key so the plugin's own mapping fires.
+            let (_, repo) = p.repo();
+            let mut repos = deps.clone();
+            repos.push(repo.to_string());
+            let repos = format!("['{}']", repos.join("', '"));
+            for map in &p.on_map {
+                for mode in ["n", "x", "o"] {
+                    f.write_all(
+                        format!(
+                            "{mode}noremap <silent> {map} \
+                             <Cmd>call s:load_on_map('{mode}', '{map}', {repos})<CR>\n",
+                            mode = mode,
+                            map = map,
+                            repos = repos,
+                        )
+                        .as_bytes(),
+                    )?;
+                }
+            }
+            f.write_all(b"\n")?;
         }
 
         if path.is_file() {

@@ -89,6 +89,13 @@ pub fn build_cli() -> Command {
                         .value_name("REPO"),
                 )
                 .arg(
+                    Arg::new("on-map")
+                        .long("on-map")
+                        .action(ArgAction::Append)
+                        .help("Load the plugin when this mapping is triggered")
+                        .value_name("MAPPING"),
+                )
+                .arg(
                     Arg::new("threads")
                         .short('j')
                         .long("threads")
