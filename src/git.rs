@@ -4,6 +4,7 @@ use git2::{self, Repository};
 use std::fs;
 use std::path::Path;
 use std::thread;
+use std::time::Duration;
 
 const LOCATION: &str = "https://github.com";
 
@@ -129,35 +130,68 @@ fn reclone(url: &str, path: &Path) -> Result<()> {
     let tmp = parent.join(format!(".{}.new.{}", name, pid));
     let old = parent.join(format!(".{}.old.{}", name, pid));
 
-    let repo = Repository::clone(url, &tmp)?;
-    update_submodules(&repo)?;
+    // The sweeper runs FIRST, not after the swap: an abandoned transfer
+    // never reaches the swap, so a sweeper that only runs there leaves the
+    // partial clone on disk forever (one directory per aborted run, each
+    // under a fresh pid). Sweeping at the top makes cleanup convergent
+    // across runs: this run's sweeper clears every earlier run's garbage
+    // (previous partials and previous swap-outs), excludes this run's
+    // in-flight directory, and an abandoned transfer is cleared by the
+    // next run that gets here.
+    {
+        let parent = parent.to_path_buf();
+        let name = name.to_string();
+        let keep = tmp.clone();
+        thread::spawn(move || {
+            let old_prefix = format!(".{}.old.", name);
+            let new_prefix = format!(".{}.new.", name);
+            if let Ok(entries) = fs::read_dir(&parent) {
+                for entry in entries.flatten() {
+                    let file_name = entry.file_name();
+                    let file_name = match file_name.to_str() {
+                        Some(n) => n.to_string(),
+                        None => continue,
+                    };
+                    if (file_name.starts_with(&old_prefix)
+                        || file_name.starts_with(&new_prefix))
+                        && entry.path() != keep
+                    {
+                        let _ = fs::remove_dir_all(entry.path());
+                    }
+                }
+            }
+        });
+    }
+
+    // The long part (the network transfer) runs in a thread this caller
+    // polls instead of blocking on: libgit2 has no cancellation, so
+    // abandonment is the only one — on quit the caller walks away, the
+    // handle is dropped, the thread stays detached, and the process exit
+    // kills the in-flight transfer. The partial stays under this run's
+    // .new.<pid> name; the next run's sweeper clears it.
+    let clone_url = url.to_string();
+    let clone_tmp = tmp.clone();
+    let handle = thread::spawn(move || -> Result<()> {
+        let repo = Repository::clone(&clone_url, &clone_tmp)?;
+        update_submodules(&repo)
+    });
+    loop {
+        if handle.is_finished() {
+            break;
+        }
+        if crate::task::quitting() {
+            // Abandon the transfer: no swap, no sweep, the partial clone
+            // stays under the .new.<pid> name for the next run's sweep.
+            return Err(crate::Error::Aborted);
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    handle
+        .join()
+        .map_err(|_| crate::Error::Git("the clone thread panicked".into()))??;
 
     fs::rename(path, &old)?;
     fs::rename(&tmp, path)?;
-
-    // Owned copies for the detached sweeper thread.
-    let parent = parent.to_path_buf();
-    let name = name.to_string();
-    thread::spawn(move || {
-        // This run's swap-out plus leftovers from earlier runs that did
-        // not finish cleaning up: old.* and new.* are trash by definition
-        // once the swap has completed.
-        let _ = fs::remove_dir_all(&old);
-        let old_prefix = format!(".{}.old.", name);
-        let new_prefix = format!(".{}.new.", name);
-        if let Ok(entries) = fs::read_dir(&parent) {
-            for entry in entries.flatten() {
-                let file_name = entry.file_name();
-                let file_name = match file_name.to_str() {
-                    Some(n) => n.to_string(),
-                    None => continue,
-                };
-                if file_name.starts_with(&old_prefix) || file_name.starts_with(&new_prefix) {
-                    let _ = fs::remove_dir_all(entry.path());
-                }
-            }
-        }
-    });
     Ok(())
 }
 
