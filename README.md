@@ -136,6 +136,17 @@ $ pack config maralla/completor.vim
 #   let g:completor_css_omni_trigger = '([\w-]+|@[\w-]*|[\w-]+:\s*[\w-]*)$'
 ```
 
+#### Neovim
+
+pack works with Neovim: plugins are installed under `~/.vim/pack`,
+which Neovim keeps on its `packpath` for Vim compatibility (see
+`:help packpath` in Neovim), so the directory layout needs no
+Neovim-specific handling. Help tags are generated for whichever editor
+is found (`vim --not-a-term`, falling back to `nvim --headless`).
+
+Whether a given plugin works under Neovim is between the plugin and
+Neovim — pack manages the same directory layout for both.
+
 #### List installed plugins
 
 ```bash
