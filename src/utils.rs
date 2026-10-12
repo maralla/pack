@@ -23,8 +23,8 @@ macro_rules! die {
 }
 
 pub struct Spinner {
-    tx: Sender<bool>,
-    handle: thread::JoinHandle<()>,
+    tx: Option<Sender<bool>>,
+    handle: Option<thread::JoinHandle<()>>,
 }
 
 impl Spinner {
@@ -40,12 +40,22 @@ impl Spinner {
                 thread::sleep(time::Duration::from_millis(100));
             }
         });
-        Spinner { tx, handle }
+        Spinner {
+            tx: Some(tx),
+            handle: Some(handle),
+        }
     }
 
+    /// Best effort: a spinner thread that already died (for example the
+    /// WSL `nanosleep` EINVAL panic, issue #45) must not take pack down
+    /// with a panic in `unwrap()` here.
     pub fn stop(self) {
-        self.tx.send(true).unwrap();
-        self.handle.join().unwrap();
+        if let Some(tx) = self.tx {
+            let _ = tx.send(true);
+        }
+        if let Some(handle) = self.handle {
+            let _ = handle.join();
+        }
     }
 }
 
