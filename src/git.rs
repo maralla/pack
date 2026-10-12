@@ -153,6 +153,72 @@ fn reclone(url: &str, path: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use git2::{IndexAddOption, Signature};
+
+    /// Create a real commit in `repo` (a real git repository in a temp
+    /// directory): one file change per commit, `msg` as the subject.
+    fn commit(repo: &Repository, msg: &str) -> git2::Oid {
+        let workdir = repo.workdir().unwrap();
+        std::fs::write(workdir.join("f.txt"), msg).unwrap();
+        let mut index = repo.index().unwrap();
+        index
+            .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+            .unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = Signature::now("t", "t@example.com").unwrap();
+        let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
+        let parents: Vec<&git2::Commit> = match parent {
+            Some(ref c) => vec![c],
+            None => vec![],
+        };
+        repo.commit(Some("HEAD"), &sig, &sig, msg, &tree, &parents)
+            .unwrap()
+    }
+
+    /// Issue #38: the changelog walker must summarize exactly the
+    /// old..new range (exclusive of old), newest first, and nothing else.
+    #[test]
+    fn changelog_walks_the_update_range() {
+        let dir = std::env::temp_dir().join(format!(
+            "pack-changelog-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init(&dir).unwrap();
+
+        let old = commit(&repo, "the old tip");
+        let _mid = commit(&repo, "the middle commit");
+        let new = commit(&repo, "the new tip");
+
+        let log = changelog(&repo, old, new);
+        assert_eq!(log.len(), 2, "exactly the old..new range: {log:?}");
+        // Newest first (the update's own commits), never the old tip.
+        assert!(log[0].ends_with("the new tip"), "{log:?}");
+        assert!(log[1].ends_with("the middle commit"), "{log:?}");
+        assert!(!log.iter().any(|e| e.contains("the old tip")), "{log:?}");
+        // short-oid prefix + subject, the generated line format.
+        assert_eq!(log[0].split(' ').next().unwrap().len(), 7);
+
+        // A diverged range (old not an ancestor of new) gets no overview.
+        let dir2 = std::env::temp_dir().join(format!(
+            "pack-changelog-test2-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir2);
+        let repo2 = Repository::init(&dir2).unwrap();
+        let unrelated = commit(&repo2, "unrelated tip");
+        assert!(changelog(&repo, unrelated, new).is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&dir2);
+    }
+}
+
 fn update_submodules(repo: &Repository) -> Result<()> {
     fn add_subrepos(repo: &Repository, list: &mut Vec<Repository>) -> Result<()> {
         for mut subm in repo.submodules()? {
