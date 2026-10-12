@@ -23,6 +23,8 @@ pub struct TaskManager {
     task_type: TaskType,
     packs: Vec<Package>,
     thread_num: usize,
+    /// Show the changelog overview of updates (opt-in: default false).
+    pub changelog: bool,
 }
 
 impl TaskManager {
@@ -31,6 +33,7 @@ impl TaskManager {
             task_type,
             packs: Vec::new(),
             thread_num,
+            changelog: false,
         }
     }
 
@@ -239,10 +242,10 @@ impl TaskManager {
         }
 
         // Issue #38: changelog overview of everything updated in this run,
-        // after the per-package UI is done.
+        // after the per-package UI is done. Opt-in: hidden by default.
         {
             let changelogs = changelogs.lock().unwrap();
-            if !changelogs.is_empty() {
+            if self.changelog && !changelogs.is_empty() {
                 println!("Changelogs of updated packages:");
                 println!();
                 for (name, log) in changelogs.iter() {

@@ -165,6 +165,12 @@ pub fn build_cli() -> Command {
                         .help("Regenerate the '_pack' file (combine all package configurations)"),
                 )
                 .arg(
+                    Arg::new("changelog")
+                        .long("changelog")
+                        .action(ArgAction::SetTrue)
+                        .help("Show a changelog overview of each update (default: hidden)"),
+                )
+                .arg(
                     Arg::new("threads")
                         .short('j')
                         .long("threads")

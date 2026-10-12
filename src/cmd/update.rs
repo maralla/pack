@@ -10,6 +10,7 @@ struct UpdateArgs {
     skip: Vec<String>,
     threads: Option<usize>,
     packfile: bool,
+    changelog: bool,
 }
 
 impl UpdateArgs {
@@ -19,6 +20,7 @@ impl UpdateArgs {
             skip: m.get_many::<String>("skip").map(|v| v.cloned().collect()).unwrap_or_default(),
             threads: m.get_one::<usize>("threads").copied(),
             packfile: m.get_flag("packfile"),
+            changelog: m.get_flag("changelog"),
         }
     }
 }
@@ -38,7 +40,7 @@ pub fn exec(matches: &ArgMatches) {
         die!("Threads should be greater than 0");
     }
 
-    if let Err(e) = update_plugins(&args.plugins, threads, &args.skip) {
+    if let Err(e) = update_plugins(&args.plugins, threads, &args.skip, args.changelog) {
         die!("Err: {}", e);
     }
 }
@@ -53,10 +55,16 @@ fn update_packfile() -> Result<()> {
     Ok(())
 }
 
-fn update_plugins(plugins: &[String], threads: usize, skip: &[String]) -> Result<()> {
+fn update_plugins(
+    plugins: &[String],
+    threads: usize,
+    skip: &[String],
+    changelog: bool,
+) -> Result<()> {
     let mut packs = package::fetch()?;
 
     let mut manager = TaskManager::new(TaskType::Update, threads);
+    manager.changelog = changelog;
     if plugins.is_empty() {
         for pack in &packs {
             if skip.iter().any(|x| pack.name.contains(x)) {
