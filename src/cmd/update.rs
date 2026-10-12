@@ -99,6 +99,11 @@ fn do_update(pack: &Package) -> Result<()> {
     } else if pack.local {
         Err(Error::SkipLocal)
     } else {
-        git::update(&pack.name, &path)
+        // UpToDate is reported as the sentinel error so the task runner can
+        // ignore the package without counting it as a failure.
+        match git::update(&pack.name, &path)? {
+            git::UpdateStatus::UpToDate => Err(Error::UpToDate),
+            git::UpdateStatus::Updated => Ok(()),
+        }
     }
 }

@@ -60,10 +60,22 @@ impl TaskManager {
 
         let mut successful = true;
         let spinner = Spinner::spin(line, SIGN_MARGIN);
-        if let (Err(e), status) = func(pack) {
+        let result = func(pack);
+        if let (Err(Error::UpToDate), _) = &result {
+            // Already at the upstream tip: ignored, not a failure.
+            // Overwrite the spinner glyph with the industry "skipped / no
+            // change" marker (hollow circle, gray — as GitHub Actions and
+            // GitLab CI render skipped jobs) so the line does not keep
+            // spinning after the spinner stopped.
             spinner.stop();
-            print_err!(e);
-            successful = status;
+            echo::character(line, SIGN_MARGIN, '○', color::LightBlack);
+            echo::inline_message(line, MSG_MARGIN + pos, "up to date");
+        } else if let (Err(e), status) = &result {
+            spinner.stop();
+            let msg = format!("{}", e);
+            echo::character(line, SIGN_MARGIN, '✗', color::Red);
+            echo::inline_message(line, MSG_MARGIN + pos, &msg);
+            successful = *status;
         } else {
             if pack.build_command.is_some() {
                 echo::inline_message(line, MSG_MARGIN + pos, "building");

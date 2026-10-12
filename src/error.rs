@@ -26,6 +26,7 @@ pub enum Error {
     CopyDir(String),
     SaveYaml,
     LoadYaml,
+    UpToDate,
 }
 
 impl Error {
@@ -90,6 +91,7 @@ impl fmt::Display for Error {
             Error::PluginNotInstalled => write!(f, "Plugin not installed"),
             Error::NoPlugin => write!(f, "Can not find such plugin"),
             Error::SkipLocal => write!(f, "Local plugin. Skipping"),
+            Error::UpToDate => write!(f, "already up to date"),
             Error::Io(ref e) => write!(f, "{}", e),
             Error::Build(ref s)
             | Error::Git(ref s)
