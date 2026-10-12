@@ -67,8 +67,7 @@ impl TaskManager {
                 }
                 (Ok(changelog), _) => {
                     if pack.build_command.is_some() {
-                        if let Err(e) =
-                            pack.try_build().map_err(|e| Error::build(format!("{}", e)))
+                        if let Err(e) = pack.try_build().map_err(|e| Error::build(format!("{}", e)))
                         {
                             println!("✗ {}: {}", pack.name, e);
                             return false;
@@ -88,7 +87,8 @@ impl TaskManager {
 
         let msg = format!(" [{}]", pack.name);
         let pos = msg.len() as u16;
-        echo::message(line, 0, &format!("    {} syncing", msg));
+        let name_prefix = format!("    {}", msg);
+        echo::message(line, 0, &format!("{} syncing", name_prefix));
 
         const MSG_MARGIN: u16 = 5;
         const SIGN_MARGIN: u16 = 3;
@@ -96,8 +96,15 @@ impl TaskManager {
         macro_rules! print_err {
             ($err:expr) => {
                 let msg = format!("{}", $err);
-                echo::character(line, SIGN_MARGIN, '✗', color::Red);
-                echo::inline_message(line, MSG_MARGIN + pos, &msg);
+                echo::result_line(
+                    line,
+                    &name_prefix,
+                    SIGN_MARGIN,
+                    '✗',
+                    color::Red,
+                    MSG_MARGIN + pos,
+                    &msg,
+                );
             };
         }
 
@@ -111,13 +118,27 @@ impl TaskManager {
             // GitLab CI render skipped jobs) so the line does not keep
             // spinning after the spinner stopped.
             spinner.stop();
-            echo::character(line, SIGN_MARGIN, '○', color::LightBlack);
-            echo::inline_message(line, MSG_MARGIN + pos, "up to date");
+            echo::result_line(
+                line,
+                &name_prefix,
+                SIGN_MARGIN,
+                '○',
+                color::LightBlack,
+                MSG_MARGIN + pos,
+                "up to date",
+            );
         } else if let (Err(e), status) = &result {
             spinner.stop();
             let msg = format!("{}", e);
-            echo::character(line, SIGN_MARGIN, '✗', color::Red);
-            echo::inline_message(line, MSG_MARGIN + pos, &msg);
+            echo::result_line(
+                line,
+                &name_prefix,
+                SIGN_MARGIN,
+                '✗',
+                color::Red,
+                MSG_MARGIN + pos,
+                &msg,
+            );
             successful = *status;
         } else {
             if pack.build_command.is_some() {
@@ -129,8 +150,15 @@ impl TaskManager {
 
             spinner.stop();
             if successful {
-                echo::character(line, SIGN_MARGIN, '✓', color::Green);
-                echo::inline_message(line, MSG_MARGIN + pos, "done");
+                echo::result_line(
+                    line,
+                    &name_prefix,
+                    SIGN_MARGIN,
+                    '✓',
+                    color::Green,
+                    MSG_MARGIN + pos,
+                    "done",
+                );
                 // Issue #38: collect the update changelog for the
                 // end-of-run overview.
                 if let (Ok(changelog), _) = &result {
@@ -252,7 +280,6 @@ impl TaskManager {
             // reclones were skipped in git::update), the workers exited,
             // the joins completed. Print the message and abort the run;
             // the caller skips the regeneration, and main returns.
-            println!("aborted");
             return Err(Error::Aborted);
         }
 
@@ -331,8 +358,7 @@ fn helptags() {
 /// that can stop reads it at its stop points. No channel, no
 /// disconnection semantics, no select multiplexing: a flag read is a
 /// flag read, and the sentinels in `run` do the waking.
-static QUITTING: std::sync::OnceLock<std::sync::atomic::AtomicBool> =
-    std::sync::OnceLock::new();
+static QUITTING: std::sync::OnceLock<std::sync::atomic::AtomicBool> = std::sync::OnceLock::new();
 
 pub fn quitting() -> bool {
     QUITTING

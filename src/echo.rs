@@ -52,17 +52,59 @@ pub fn async_print(line: u16, right: u16, msg: &str) {
 }
 
 pub fn character<C: color::Color>(line: u16, offset: u16, c: char, char_color: C) {
+    // Absolute hops, like the result line: a glyph whose rendered cell
+    // width exceeds one makes a delta return trip (Left) come up short,
+    // the cursor drifts a column per tick, and the next tick paints
+    // beside the previous glyph — two glyphs prefixing the line, marching.
+    // A carriage return before and after pins the column at 0 whatever
+    // the glyph's width.
     async_print(
         line,
-        offset + 1,
+        0,
         &format!(
-            "{}{}{}{}",
+            "\r{}{}{}{}\r",
             cursor::Right(offset),
             color::Fg(char_color),
             c,
             color::Fg(color::Reset)
         ),
     );
+}
+
+/// One atomic result line: erase whatever a spinner painted on the row,
+/// then the name, the marker at its column, and the message — all in a
+/// single cursor-addressed write. Split writes let the cursor's column
+/// tracking compound between them (a marker landing one column off, garbage
+/// at the prompt); one write lands the whole line or nothing.
+pub fn result_line<C: color::Color>(
+    line: u16,
+    name_prefix: &str,
+    marker_offset: u16,
+    marker: char,
+    marker_color: C,
+    message_offset: u16,
+    message: &str,
+) {
+    // The payload, in order: erase the whole row, the name from column 0,
+    // the marker at its column, erase the old tail, the message at its
+    // column. Every hop is a carriage return to column 0 plus an absolute
+    // move: a delta hop lands one column off when anything outside this
+    // write advances the cursor first (a terminal echoing a Ctrl-C byte at
+    // the cursor, for example). One erase before the message covers the
+    // row to its end, so nothing needs to follow the message, and the
+    // final carriage return leaves the column at 0 whatever happened.
+    let payload = format!(
+        "\r{}\r{}{}{}{}\r{}{}{}\r",
+        name_prefix,
+        cursor::Right(marker_offset),
+        color::Fg(marker_color),
+        marker,
+        color::Fg(color::Reset),
+        cursor::Right(message_offset),
+        clear::UntilNewline,
+        message,
+    );
+    async_print(line, 0, &payload);
 }
 
 pub fn inline_message(line: u16, offset: u16, msg: &str) {

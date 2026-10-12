@@ -16,8 +16,14 @@ struct UpdateArgs {
 impl UpdateArgs {
     fn from_matches(m: &ArgMatches) -> UpdateArgs {
         UpdateArgs {
-            plugins: m.get_many::<String>("package").map(|v| v.cloned().collect()).unwrap_or_default(),
-            skip: m.get_many::<String>("skip").map(|v| v.cloned().collect()).unwrap_or_default(),
+            plugins: m
+                .get_many::<String>("package")
+                .map(|v| v.cloned().collect())
+                .unwrap_or_default(),
+            skip: m
+                .get_many::<String>("skip")
+                .map(|v| v.cloned().collect())
+                .unwrap_or_default(),
             threads: m.get_one::<usize>("threads").copied(),
             packfile: m.get_flag("packfile"),
             changelog: m.get_flag("changelog"),
@@ -82,8 +88,10 @@ fn update_plugins(
     let fails = match manager.run(update_plugin) {
         // Aborted: skip the regeneration entirely — it cannot be
         // interrupted once it starts, and the user already asked to stop.
+        // The newline: the last write left the cursor mid-row, and without
+        // it the shell prompt lands on the output's last line.
         Err(Error::Aborted) => {
-            eprintln!("[quit-chain] 5: caller skipping regeneration, returning");
+            println!();
             return Ok(());
         }
         Err(e) => return Err(e),

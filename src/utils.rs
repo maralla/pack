@@ -1,3 +1,4 @@
+use termion::color;
 use crate::echo;
 use crate::{Error, Result};
 
@@ -5,14 +6,14 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::process;
-use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time;
-use termion::color;
+use std::sync::mpsc::{channel, Sender};
 use walkdir::WalkDir;
 
-const SPINNER_CHARS: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const DEFAULT_EDITOR: &str = "vi";
+
+const SPINNER_CHARS: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 macro_rules! die {
     ($($arg:tt)*) => ({
@@ -28,6 +29,12 @@ pub struct Spinner {
 }
 
 impl Spinner {
+    /// The spinner paints only its own task's line, and every result path
+    /// (including the quit path, which goes through the same branch)
+    /// stops the thread and then erases and overwrites the whole row in
+    /// one write — so the glyph dies with its own task's result and
+    /// nothing outlives the run. No newline is printed after the initial
+    /// line reservations, so nothing scrolls and the glyph never moves.
     pub fn spin(x: u16, y: u16) -> Spinner {
         if echo::plain() {
             // Non-interactive sink: no spinner (and no spinner thread whose
