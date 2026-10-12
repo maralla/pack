@@ -42,7 +42,7 @@ fn uninstall_plugins(plugins: &[String], all: bool) -> Result<()> {
 }
 
 fn uninstall_plugin(plugin: &Package, all: bool) -> Result<()> {
-    let config_file = plugin.config_path();
+    let config_file = plugin.existing_config_path();
     let plugin_path = plugin.path();
 
     if config_file.is_file() && all {

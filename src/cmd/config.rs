@@ -34,7 +34,9 @@ fn config_plugin(name: &str, delete: bool) -> Result<()> {
     let temp_pack = package::Package::new(name, "temp", true);
     let pack = packs.iter().find(|x| name == x.name).unwrap_or(&temp_pack);
 
-    let path = pack.config_path();
+    // Resolve legacy names too so pre-#22 configurations can still be
+    // edited and deleted; new files are created under the canonical name.
+    let path = pack.existing_config_path();
 
     let modified = match fs::metadata(&path) {
         Err(e) => {

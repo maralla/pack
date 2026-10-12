@@ -196,6 +196,23 @@ impl Package {
     }
 
     pub fn config_path(&self) -> PathBuf {
+        // Issue #22: appending `.vim` only when the escaped name lacks it
+        // collides — `junegunn/fzf` and `junegunn/fzf.vim` both map to
+        // `junegunn-fzf.vim` and share one configuration file (and one
+        // inlined copy in `_pack.vim`). Always appending `.pack` after the
+        // full escaped name keeps the two distinct.
+        let name = if self.local {
+            self.basename().to_string()
+        } else {
+            self.name.replace("/", "-")
+        };
+        pack_config_dir().join(format!("{}.pack", name))
+    }
+
+    /// The pre-#22 configuration name (escaped name, `.vim` appended when
+    /// missing). Kept so configurations written by older pack versions can
+    /// still be found, read and deleted.
+    pub fn legacy_config_path(&self) -> PathBuf {
         let name = if self.local {
             self.basename().to_string()
         } else {
@@ -207,6 +224,21 @@ impl Package {
             format!("{}.vim", &name)
         };
         pack_config_dir().join(fname)
+    }
+
+    /// Resolve this package's configuration file: the canonical name when it
+    /// exists (or when nothing exists yet), the legacy name when only that
+    /// exists. Configurations from before #22 keep working until rewritten.
+    pub fn existing_config_path(&self) -> PathBuf {
+        let canonical = self.config_path();
+        if canonical.is_file() {
+            return canonical;
+        }
+        let legacy = self.legacy_config_path();
+        if legacy.is_file() {
+            return legacy;
+        }
+        canonical
     }
 
     pub fn repo(&self) -> (&str, &str) {
@@ -316,7 +348,7 @@ pub fn update_pack_plugin(packs: &[Package]) -> Result<()> {
     f.write_all(format!("{}\n\n", PLUGIN_HEADER).as_bytes())?;
 
     let mut buf = String::new();
-    for (p, path) in packs.iter().map(|x| (x, x.config_path())) {
+    for (p, path) in packs.iter().map(|x| (x, x.existing_config_path())) {
         buf.clear();
         let mut written = false;
 
@@ -423,6 +455,16 @@ mod tests {
         let p = Package::new("reponame", "", false);
         let exp = pack_dir().join("start").join("reponame");
         assert_eq!(exp, p.path());
+    }
+
+    #[test]
+    fn config_path_distinguishes_vim_suffix() {
+        // Issue #22: `fzf` and `fzf.vim` must not share a config file.
+        let a = Package::new("junegunn/fzf", "", false).config_path();
+        let b = Package::new("junegunn/fzf.vim", "", false).config_path();
+        assert_ne!(a, b);
+        assert!(a.ends_with("junegunn-fzf.pack"));
+        assert!(b.ends_with("junegunn-fzf.vim.pack"));
     }
 
     #[test]
